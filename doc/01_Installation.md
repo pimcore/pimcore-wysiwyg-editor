@@ -18,11 +18,11 @@ composer require pimcore/x-template-name-bundle-x
 
 2) Make sure the bundle is enabled in the `config/bundles.php` file. The following lines should be added:
 ```php
-use Pimcore\Bundle\xTemplateBundlex\PimcorexTemplateBundlex;
+use Pimcore\Bundle\WysiwygEditor\PimcoreWysiwygEditor;
 // ...
 return [
     // ...
-    PimcorexTemplateBundlex::class => ['all' => true],
+    PimcoreWysiwygEditor::class => ['all' => true],
     // ...
 ];  
 ```
@@ -30,5 +30,5 @@ return [
 3) Install the bundle:
 
 ```bash
-bin/console pimcore:bundle:install PimcorexTemplateBundlex
+bin/console pimcore:bundle:install PimcoreWysiwygEditor
 ```

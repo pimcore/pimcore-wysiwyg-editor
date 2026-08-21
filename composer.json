@@ -1,8 +1,8 @@
 {
-  "name": "pimcore/x-template-name-bundle-x",
+  "name": "pimcore/pimcore-wysiwyg-editor",
   "license": "Pimcore Enterprise License (PEL)",
   "type": "pimcore-bundle",
-  "description": "Pimcore xTemplate Bundlex",
+  "description": "Pimcore WYSIWYG Editor Bundle",
   "config": {
     "discard-changes": true,
     "sort-packages": true,
@@ -36,18 +36,18 @@
   },
   "autoload": {
     "psr-4": {
-      "Pimcore\\Bundle\\xTemplateBundlex\\": "src/"
+      "Pimcore\\Bundle\\WysiwygEditor\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "Pimcore\\Bundle\\xTemplateBundlex\\Tests\\": "tests"
+      "Pimcore\\Bundle\\WysiwygEditor\\Tests\\": "tests"
     }
   },
   "extra": {
     "pimcore": {
       "bundles": [
-        "Pimcore\\Bundle\\xTemplateBundlex\\PimcorexTemplateBundlex"
+        "Pimcore\\Bundle\\WysiwygEditor\\PimcoreWysiwygEditor"
       ]
     }
   },
