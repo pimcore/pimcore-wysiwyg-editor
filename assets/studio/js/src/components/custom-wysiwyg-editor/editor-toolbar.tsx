@@ -12,6 +12,16 @@ import React, { useState } from 'react'
 import { Button, Input, Popover, Select, Space, Tooltip } from 'antd'
 import { useTranslation } from '@pimcore/studio-ui-bundle/app'
 import { useStyles } from './custom-wysiwyg-editor.styles'
+import {
+  BlockquoteIcon,
+  BoldIcon,
+  ClearFormatIcon,
+  CodeViewIcon,
+  ItalicIcon,
+  LinkIcon,
+  OrderedListIcon,
+  UnorderedListIcon
+} from './toolbar-icons'
 
 export interface EditorToolbarProps {
   onCommand: (command: string, argument?: string) => void
@@ -50,17 +60,17 @@ export const EditorToolbar = ({ onCommand, onInsertLink, codeView, onToggleCodeV
     setLinkPopoverOpen(false)
   }
 
-  const formatButton = (label: React.ReactNode, tooltip: string, command: string, argument?: string): React.JSX.Element => (
+  const formatButton = (icon: React.ReactNode, tooltip: string, command: string, argument?: string): React.JSX.Element => (
     <Tooltip title={ tooltip }>
       <Button
+        aria-label={ tooltip }
         disabled={ codeView }
+        icon={ icon }
         onClick={ () => { onCommand(command, argument) } }
         onMouseDown={ preventFocusSteal }
         size="small"
         type="text"
-      >
-        { label }
-      </Button>
+      />
     </Tooltip>
   )
 
@@ -82,14 +92,14 @@ export const EditorToolbar = ({ onCommand, onInsertLink, codeView, onToggleCodeV
 
       <div className={ styles.toolbarDivider } />
 
-      { formatButton(<strong>B</strong>, t('wysiwyg-editor.toolbar.bold'), 'bold') }
-      { formatButton(<em>I</em>, t('wysiwyg-editor.toolbar.italic'), 'italic') }
+      { formatButton(<BoldIcon />, t('wysiwyg-editor.toolbar.bold'), 'bold') }
+      { formatButton(<ItalicIcon />, t('wysiwyg-editor.toolbar.italic'), 'italic') }
 
       <div className={ styles.toolbarDivider } />
 
-      { formatButton('• List', t('wysiwyg-editor.toolbar.unordered-list'), 'insertUnorderedList') }
-      { formatButton('1. List', t('wysiwyg-editor.toolbar.ordered-list'), 'insertOrderedList') }
-      { formatButton('❝', t('wysiwyg-editor.toolbar.blockquote'), 'formatBlock', 'blockquote') }
+      { formatButton(<UnorderedListIcon />, t('wysiwyg-editor.toolbar.unordered-list'), 'insertUnorderedList') }
+      { formatButton(<OrderedListIcon />, t('wysiwyg-editor.toolbar.ordered-list'), 'insertOrderedList') }
+      { formatButton(<BlockquoteIcon />, t('wysiwyg-editor.toolbar.blockquote'), 'formatBlock', 'blockquote') }
 
       <div className={ styles.toolbarDivider } />
 
@@ -125,28 +135,28 @@ export const EditorToolbar = ({ onCommand, onInsertLink, codeView, onToggleCodeV
       >
         <Tooltip title={ t('wysiwyg-editor.toolbar.link') }>
           <Button
+            aria-label={ t('wysiwyg-editor.toolbar.link') }
             disabled={ codeView }
+            icon={ <LinkIcon /> }
             size="small"
             type="text"
-          >
-            🔗
-          </Button>
+          />
         </Tooltip>
       </Popover>
 
       <div className={ styles.toolbarDivider } />
 
-      { formatButton('⌫', t('wysiwyg-editor.toolbar.remove-format'), 'removeFormat') }
+      { formatButton(<ClearFormatIcon />, t('wysiwyg-editor.toolbar.remove-format'), 'removeFormat') }
 
       <Tooltip title={ t('wysiwyg-editor.toolbar.code-view') }>
         <Button
+          aria-label={ t('wysiwyg-editor.toolbar.code-view') }
+          icon={ <CodeViewIcon /> }
           onClick={ onToggleCodeView }
           onMouseDown={ preventFocusSteal }
           size="small"
           type={ codeView ? 'primary' : 'text' }
-        >
-          {'</>'}
-        </Button>
+        />
       </Tooltip>
     </div>
   )
