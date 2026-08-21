@@ -1,0 +1,12 @@
+wysiwyg-editor.toolbar.block-format: Format
+wysiwyg-editor.toolbar.bold: Bold
+wysiwyg-editor.toolbar.italic: Italic
+wysiwyg-editor.toolbar.unordered-list: Bulleted list
+wysiwyg-editor.toolbar.ordered-list: Numbered list
+wysiwyg-editor.toolbar.blockquote: Blockquote
+wysiwyg-editor.toolbar.link: Insert link
+wysiwyg-editor.toolbar.remove-format: Remove formatting
+wysiwyg-editor.toolbar.code-view: Code view
+wysiwyg-editor.link.url: URL
+wysiwyg-editor.link.text: Link text (optional)
+wysiwyg-editor.link.insert: Insert

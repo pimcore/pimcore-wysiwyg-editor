@@ -1,0 +1,69 @@
+/**
+ * Pimcore
+ *
+ * This source file is available under following license:
+ * - GNU General Public License version 3 (GPLv3)
+ *
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3
+ */
+
+import { createStyles } from 'antd-style'
+
+export const useStyles = createStyles(({ token }) => {
+  return {
+    wrapper: {
+      border: `1px solid ${token.colorBorder}`,
+      borderRadius: `${token.borderRadius}px`,
+      backgroundColor: token.colorBgContainer,
+
+      '&:focus-within': {
+        borderColor: token.colorPrimary,
+        boxShadow: `0 0 0 2px ${token.colorPrimaryBg}`
+      }
+    },
+
+    toolbar: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: '4px',
+      padding: '4px',
+      borderBottom: `1px solid ${token.colorBorderSecondary}`
+    },
+
+    toolbarDivider: {
+      width: '1px',
+      alignSelf: 'stretch',
+      margin: '2px 4px',
+      backgroundColor: token.colorBorderSecondary
+    },
+
+    content: {
+      minHeight: '120px',
+      padding: '8px 12px',
+      outline: 'none',
+      overflowWrap: 'break-word',
+
+      '&[data-empty="true"]:before': {
+        content: 'attr(data-placeholder)',
+        color: token.colorTextPlaceholder,
+        pointerEvents: 'none',
+        position: 'absolute'
+      },
+
+      '& blockquote': {
+        margin: '8px 0',
+        padding: '4px 12px',
+        borderLeft: `3px solid ${token.colorBorder}`,
+        color: token.colorTextSecondary
+      }
+    },
+
+    codeView: {
+      '& .cm-editor': {
+        minHeight: '120px'
+      }
+    }
+  }
+})
