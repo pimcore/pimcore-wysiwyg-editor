@@ -76,8 +76,11 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       }
 
       focusContent()
-      // deliberately kept on the deprecated-but-universal execCommand API to stay dependency-free
-      document.execCommand(command, false, argument)
+      // deliberately kept on the deprecated-but-universal execCommand API to stay dependency-free;
+      // formatBlock is the one command whose argument format differs per engine — the
+      // angle-bracket form is the only one every browser accepts
+      const commandArgument = command === 'formatBlock' && argument !== undefined ? `<${argument}>` : argument
+      document.execCommand(command, false, commandArgument)
       emitChange()
     }
 
