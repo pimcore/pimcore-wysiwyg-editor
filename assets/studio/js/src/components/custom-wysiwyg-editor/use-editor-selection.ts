@@ -18,6 +18,8 @@ export interface FormatState {
   orderedList: boolean
   blockquote: boolean
   block?: string
+  /** an item can only be nested under a preceding one, so the first item of a list cannot indent */
+  canIndent: boolean
 }
 
 export interface EditorSelection {
@@ -32,7 +34,8 @@ const EMPTY_FORMAT_STATE: FormatState = {
   unorderedList: false,
   orderedList: false,
   blockquote: false,
-  block: undefined
+  block: undefined,
+  canIndent: false
 }
 
 export type InlineMark = 'bold' | 'italic'
@@ -175,6 +178,7 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
     const doc = content.ownerDocument
     const block = queryBlockTag(doc)
     const startNode = resolveStartNode(range)
+    const listItem = findListItem(content, startNode)
 
     setFormatState({
       bold: !isNil(findInlineMark(content, startNode, 'bold')),
@@ -182,7 +186,8 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
       unorderedList: queryState(doc, 'insertUnorderedList'),
       orderedList: queryState(doc, 'insertOrderedList'),
       blockquote: block === 'blockquote',
-      block
+      block,
+      canIndent: listItem?.previousElementSibling?.tagName === 'LI'
     })
   }, [contentRef, getSelection])
 

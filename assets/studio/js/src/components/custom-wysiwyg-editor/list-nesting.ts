@@ -34,10 +34,18 @@ export const normalizeNestedLists = (root: HTMLElement): void => {
       return
     }
 
-    // no item to attach to (the list starts with a nested level) — give it one
-    const listItem = root.ownerDocument.createElement('li')
-    nestedList.parentNode?.insertBefore(listItem, nestedList)
-    listItem.appendChild(nestedList)
+    // No item to nest under, so there is no level to nest into — lift the entries into the parent
+    // list. Wrapping them in an item of their own instead would add a marker with no text, and
+    // repeating that stacks up the empty "1." markers this normalization exists to avoid.
+    const parentList = nestedList.parentNode
+
+    if (!isNil(parentList)) {
+      while (nestedList.firstChild !== null) {
+        parentList.insertBefore(nestedList.firstChild, nestedList)
+      }
+
+      nestedList.remove()
+    }
   })
 
   // an outdented item belongs after its former parent, not inside it; reversed so that several

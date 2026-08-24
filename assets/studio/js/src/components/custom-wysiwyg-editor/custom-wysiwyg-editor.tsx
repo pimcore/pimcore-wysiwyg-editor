@@ -210,6 +210,14 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     }
 
     /**
+     * An item nests under the one above it, so the first item of a list has no level to move into
+     * and indenting it must do nothing — otherwise each press wraps it in another item that holds
+     * only a list, rendering as a stack of empty markers.
+     */
+    const canApplyIndent = (listItem: HTMLElement, command: 'indent' | 'outdent'): boolean =>
+      command === 'outdent' || listItem.previousElementSibling?.tagName === 'LI'
+
+    /**
      * Indenting is offered inside lists only. Outside one `execCommand('indent')` wraps the block
      * in a margin-styled blockquote, which is not something this editor should produce.
      */
@@ -222,7 +230,9 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
 
       focusContent()
 
-      if (isNil(getCurrentListItem())) {
+      const listItem = getCurrentListItem()
+
+      if (isNil(listItem) || !canApplyIndent(listItem, command)) {
         return
       }
 
