@@ -66,6 +66,24 @@ export const OrderedListIcon = (): React.JSX.Element => (
   </ToolbarIcon>
 )
 
+export const IndentIcon = (): React.JSX.Element => (
+  <ToolbarIcon>
+    <polyline points="3 8 7 12 3 16" />
+    <line x1="21" x2="11" y1="6" y2="6" />
+    <line x1="21" x2="11" y1="12" y2="12" />
+    <line x1="21" x2="11" y1="18" y2="18" />
+  </ToolbarIcon>
+)
+
+export const OutdentIcon = (): React.JSX.Element => (
+  <ToolbarIcon>
+    <polyline points="7 8 3 12 7 16" />
+    <line x1="21" x2="11" y1="6" y2="6" />
+    <line x1="21" x2="11" y1="12" y2="12" />
+    <line x1="21" x2="11" y1="18" y2="18" />
+  </ToolbarIcon>
+)
+
 export const BlockquoteIcon = (): React.JSX.Element => (
   <ToolbarIcon>
     <path d="M9 9h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V8.5a2 2 0 0 1 2-2" />

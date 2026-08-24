@@ -3,6 +3,8 @@ wysiwyg-editor.toolbar.bold: Grassetto
 wysiwyg-editor.toolbar.italic: Corsivo
 wysiwyg-editor.toolbar.unordered-list: Elenco puntato
 wysiwyg-editor.toolbar.ordered-list: Elenco numerato
+wysiwyg-editor.toolbar.indent: Aumenta rientro
+wysiwyg-editor.toolbar.outdent: Riduci rientro
 wysiwyg-editor.toolbar.blockquote: Citazione
 wysiwyg-editor.toolbar.link: Inserisci collegamento
 wysiwyg-editor.toolbar.remove-format: Rimuovi formattazione

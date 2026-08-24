@@ -16,7 +16,15 @@ import { isNil } from 'lodash'
 import { useStyles } from './custom-wysiwyg-editor.styles'
 import { EditorToolbar } from './editor-toolbar'
 import { CodeViewModal } from './code-view-modal'
-import { useEditorSelection } from './use-editor-selection'
+import {
+  INLINE_MARKS,
+  findInlineMark,
+  findListItem,
+  resolveSelectionStartNode,
+  useEditorSelection,
+  type InlineMark
+} from './use-editor-selection'
+import { normalizeNestedLists } from './list-nesting'
 
 const LINKABLE_DOCUMENT_TYPES = ['page', 'hardlink', 'link']
 
@@ -131,6 +139,109 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       refreshFormatState()
     }
 
+    /**
+     * Bold and italic are applied by hand rather than through `execCommand`, which decides whether
+     * it is adding or removing the mark from the *computed* style. Inside a heading that is always
+     * "already bold", so it would strip the text into a `span{font-weight:normal}` instead of
+     * wrapping it in a `b`. Toggling against the marks actually present keeps the button state and
+     * what the command does in agreement.
+     */
+    const handleToggleMark = (mark: InlineMark): void => {
+      if (!isEditable) {
+        return
+      }
+
+      focusContent()
+
+      const content = contentRef.current
+      const selection = content?.ownerDocument.defaultView?.getSelection()
+
+      if (isNil(content) || isNil(selection) || selection.rangeCount === 0) {
+        return
+      }
+
+      const doc = content.ownerDocument
+      const range = selection.getRangeAt(0)
+      const existingMark = findInlineMark(content, resolveSelectionStartNode(range), mark)
+
+      if (!isNil(existingMark)) {
+        // unwrap the whole marked run — a simplification the "basic formatting" scope allows
+        const parent = existingMark.parentNode
+
+        if (!isNil(parent)) {
+          while (existingMark.firstChild !== null) {
+            parent.insertBefore(existingMark.firstChild, existingMark)
+          }
+
+          parent.removeChild(existingMark)
+        }
+      } else if (range.collapsed) {
+        // no selection to wrap — let the browser handle "type the next characters marked"
+        doc.execCommand(mark)
+      } else {
+        const wrapper = doc.createElement(INLINE_MARKS[mark].tag)
+        wrapper.appendChild(range.extractContents())
+        range.insertNode(wrapper)
+
+        const wrappedRange = doc.createRange()
+        wrappedRange.selectNodeContents(wrapper)
+        selection.removeAllRanges()
+        selection.addRange(wrappedRange)
+      }
+
+      emitChange()
+      refreshFormatState()
+    }
+
+    /** The list item the caret is in, or null when the selection is not inside a list. */
+    const getCurrentListItem = (): HTMLElement | null => {
+      const content = contentRef.current
+      const selection = content?.ownerDocument.defaultView?.getSelection()
+
+      if (isNil(content) || isNil(selection) || selection.rangeCount === 0) {
+        return null
+      }
+
+      const range = selection.getRangeAt(0)
+
+      return content.contains(range.commonAncestorContainer)
+        ? findListItem(content, resolveSelectionStartNode(range))
+        : null
+    }
+
+    /**
+     * Indenting is offered inside lists only. Outside one `execCommand('indent')` wraps the block
+     * in a margin-styled blockquote, which is not something this editor should produce.
+     */
+    const handleIndent = (command: 'indent' | 'outdent'): void => {
+      const content = contentRef.current
+
+      if (!isEditable || isNil(content)) {
+        return
+      }
+
+      focusContent()
+
+      if (isNil(getCurrentListItem())) {
+        return
+      }
+
+      content.ownerDocument.execCommand(command)
+      normalizeNestedLists(content)
+      emitChange()
+      refreshFormatState()
+    }
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+      // Tab only indents within a list; everywhere else it must keep moving focus
+      if (event.key !== 'Tab' || isNil(getCurrentListItem())) {
+        return
+      }
+
+      event.preventDefault()
+      handleIndent(event.shiftKey ? 'outdent' : 'indent')
+    }
+
     const insertHtml = (html: string): void => {
       if (!isEditable) {
         return
@@ -210,7 +321,9 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
             onCommand={ handleCommand }
             onInsertLink={ handleInsertLink }
             onLinkPopoverOpenChange={ setLinkPopoverOpen }
+            onIndent={ handleIndent }
             onOpenCodeView={ () => { setCodeViewOpen(true) } }
+            onToggleMark={ handleToggleMark }
           />
         ) }
 
@@ -220,6 +333,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
           data-empty={ valueIsEmpty }
           data-placeholder={ placeholder }
           onInput={ handleInput }
+          onKeyDown={ handleKeyDown }
           ref={ contentRef }
           style={ { minHeight: toCssDimension(height) } }
           suppressContentEditableWarning

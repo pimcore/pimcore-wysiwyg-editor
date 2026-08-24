@@ -3,6 +3,8 @@ wysiwyg-editor.toolbar.bold: Fet
 wysiwyg-editor.toolbar.italic: Kursiv
 wysiwyg-editor.toolbar.unordered-list: Punktliste
 wysiwyg-editor.toolbar.ordered-list: Nummerert liste
+wysiwyg-editor.toolbar.indent: Øk innrykk
+wysiwyg-editor.toolbar.outdent: Reduser innrykk
 wysiwyg-editor.toolbar.blockquote: Blokksitat
 wysiwyg-editor.toolbar.link: Sett inn lenke
 wysiwyg-editor.toolbar.remove-format: Fjern formatering

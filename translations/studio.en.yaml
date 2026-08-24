@@ -3,6 +3,8 @@ wysiwyg-editor.toolbar.bold: Bold
 wysiwyg-editor.toolbar.italic: Italic
 wysiwyg-editor.toolbar.unordered-list: Bulleted list
 wysiwyg-editor.toolbar.ordered-list: Numbered list
+wysiwyg-editor.toolbar.indent: Indent
+wysiwyg-editor.toolbar.outdent: Outdent
 wysiwyg-editor.toolbar.blockquote: Blockquote
 wysiwyg-editor.toolbar.link: Insert link
 wysiwyg-editor.toolbar.remove-format: Remove formatting

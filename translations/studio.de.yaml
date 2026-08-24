@@ -3,6 +3,8 @@ wysiwyg-editor.toolbar.bold: Fett
 wysiwyg-editor.toolbar.italic: Kursiv
 wysiwyg-editor.toolbar.unordered-list: Aufzählungsliste
 wysiwyg-editor.toolbar.ordered-list: Nummerierte Liste
+wysiwyg-editor.toolbar.indent: Einrücken
+wysiwyg-editor.toolbar.outdent: Ausrücken
 wysiwyg-editor.toolbar.blockquote: Blockzitat
 wysiwyg-editor.toolbar.link: Link einfügen
 wysiwyg-editor.toolbar.remove-format: Formatierung entfernen

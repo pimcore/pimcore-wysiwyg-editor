@@ -35,8 +35,26 @@ const EMPTY_FORMAT_STATE: FormatState = {
   block: undefined
 }
 
-const BOLD_TAGS = ['B', 'STRONG']
-const ITALIC_TAGS = ['I', 'EM']
+export type InlineMark = 'bold' | 'italic'
+
+interface InlineMarkDefinition {
+  tag: string
+  tags: string[]
+  isStyled: (element: HTMLElement) => boolean
+}
+
+export const INLINE_MARKS: Record<InlineMark, InlineMarkDefinition> = {
+  bold: {
+    tag: 'b',
+    tags: ['B', 'STRONG'],
+    isStyled: (element) => isBoldWeight(element.style.fontWeight)
+  },
+  italic: {
+    tag: 'i',
+    tags: ['I', 'EM'],
+    isStyled: (element) => element.style.fontStyle === 'italic'
+  }
+}
 
 const queryState = (doc: Document, command: string): boolean => {
   try {
@@ -68,25 +86,40 @@ const resolveStartNode = (range: Range): Node => {
     : startContainer
 }
 
-/**
- * `queryCommandState('bold' | 'italic')` reports the *computed* style, so it is true for anything
- * inside a heading purely because headings default to font-weight 700 — which lights up the bold
- * button when the user has applied no bold at all. The toolbar has to show whether the mark was
- * explicitly applied, so look for one in the ancestor chain instead.
- */
-const hasInlineMark = (root: HTMLElement, node: Node, tags: string[], isStyled: (element: HTMLElement) => boolean): boolean => {
+/** Walks from `node` up to (but not including) `root`, returning the first element that matches. */
+const findAncestor = (root: HTMLElement, node: Node, matches: (element: HTMLElement) => boolean): HTMLElement | null => {
   let current: Node | null = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode
 
   while (current instanceof HTMLElement && current !== root && root.contains(current)) {
-    if (tags.includes(current.nodeName) || isStyled(current)) {
-      return true
+    if (matches(current)) {
+      return current
     }
 
     current = current.parentElement
   }
 
-  return false
+  return null
 }
+
+/**
+ * The `b`/`strong`/`i`/`em` (or inline-styled) element applying `mark` to `node`, if any.
+ *
+ * `queryCommandState('bold' | 'italic')` cannot answer this: it reports the *computed* style, so it
+ * is true for anything inside a heading purely because headings default to font-weight 700. That
+ * both lights up the bold button when nothing is bold and makes `execCommand('bold')` "un-bold"
+ * heading text into a `span{font-weight:normal}` instead of adding a `b`.
+ */
+export const findInlineMark = (root: HTMLElement, node: Node, mark: InlineMark): HTMLElement | null => {
+  const { tags, isStyled } = INLINE_MARKS[mark]
+
+  return findAncestor(root, node, (element) => tags.includes(element.nodeName) || isStyled(element))
+}
+
+/** The list item the caret sits in, if any — indenting only makes sense inside one. */
+export const findListItem = (root: HTMLElement, node: Node): HTMLElement | null =>
+  findAncestor(root, node, (element) => element.nodeName === 'LI')
+
+export const resolveSelectionStartNode = resolveStartNode
 
 /**
  * Resolves the block element the caret currently sits in. Browsers report plain, never
@@ -144,8 +177,8 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
     const startNode = resolveStartNode(range)
 
     setFormatState({
-      bold: hasInlineMark(content, startNode, BOLD_TAGS, (element) => isBoldWeight(element.style.fontWeight)),
-      italic: hasInlineMark(content, startNode, ITALIC_TAGS, (element) => element.style.fontStyle === 'italic'),
+      bold: !isNil(findInlineMark(content, startNode, 'bold')),
+      italic: !isNil(findInlineMark(content, startNode, 'italic')),
       unorderedList: queryState(doc, 'insertUnorderedList'),
       orderedList: queryState(doc, 'insertOrderedList'),
       blockquote: block === 'blockquote',

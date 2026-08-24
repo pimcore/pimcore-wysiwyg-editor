@@ -3,6 +3,8 @@ wysiwyg-editor.toolbar.bold: Negrita
 wysiwyg-editor.toolbar.italic: Cursiva
 wysiwyg-editor.toolbar.unordered-list: Lista con viñetas
 wysiwyg-editor.toolbar.ordered-list: Lista numerada
+wysiwyg-editor.toolbar.indent: Aumentar sangría
+wysiwyg-editor.toolbar.outdent: Reducir sangría
 wysiwyg-editor.toolbar.blockquote: Cita
 wysiwyg-editor.toolbar.link: Insertar enlace
 wysiwyg-editor.toolbar.remove-format: Quitar formato

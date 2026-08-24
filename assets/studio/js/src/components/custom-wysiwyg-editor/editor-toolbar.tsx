@@ -12,7 +12,7 @@ import React, { useState } from 'react'
 import { Button, Input, Popover, Select, Space, Tooltip } from 'antd'
 import { useTranslation } from '@pimcore/studio-ui-bundle/app'
 import { useStyles } from './custom-wysiwyg-editor.styles'
-import { type FormatState } from './use-editor-selection'
+import { type FormatState, type InlineMark } from './use-editor-selection'
 import {
   BlockquoteIcon,
   BoldIcon,
@@ -20,7 +20,9 @@ import {
   CodeViewIcon,
   ItalicIcon,
   LinkIcon,
+  IndentIcon,
   OrderedListIcon,
+  OutdentIcon,
   RedoIcon,
   UndoIcon,
   UnorderedListIcon
@@ -29,6 +31,8 @@ import {
 export interface EditorToolbarProps {
   formatState: FormatState
   onCommand: (command: string, argument?: string) => void
+  onToggleMark: (mark: InlineMark) => void
+  onIndent: (command: 'indent' | 'outdent') => void
   onInsertLink: (url: string, text: string) => void
   linkPopoverOpen: boolean
   onLinkPopoverOpenChange: (open: boolean) => void
@@ -48,6 +52,8 @@ const BLOCK_OPTIONS = [
 export const EditorToolbar = ({
   formatState,
   onCommand,
+  onToggleMark,
+  onIndent,
   onInsertLink,
   linkPopoverOpen,
   onLinkPopoverOpenChange,
@@ -78,13 +84,15 @@ export const EditorToolbar = ({
     icon: React.ReactNode,
     tooltip: string,
     onClick: () => void,
-    active = false
+    active = false,
+    disabled = false
   ): React.JSX.Element => (
     <Tooltip title={ tooltip }>
       <Button
         aria-label={ tooltip }
         aria-pressed={ active }
         className={ cx(active && styles.toolbarButtonActive) }
+        disabled={ disabled }
         icon={ icon }
         onClick={ onClick }
         onMouseDown={ preventFocusSteal }
@@ -101,6 +109,8 @@ export const EditorToolbar = ({
     active = false,
     argument?: string
   ): React.JSX.Element => toolbarButton(icon, tooltip, () => { onCommand(command, argument) }, active)
+
+  const inList = formatState.unorderedList || formatState.orderedList
 
   const blockValue = BLOCK_OPTIONS.some((option) => option.value === formatState.block)
     ? formatState.block
@@ -128,13 +138,15 @@ export const EditorToolbar = ({
 
       <div className={ styles.toolbarDivider } />
 
-      { formatButton(<BoldIcon />, t('wysiwyg-editor.toolbar.bold'), 'bold', formatState.bold) }
-      { formatButton(<ItalicIcon />, t('wysiwyg-editor.toolbar.italic'), 'italic', formatState.italic) }
+      { toolbarButton(<BoldIcon />, t('wysiwyg-editor.toolbar.bold'), () => { onToggleMark('bold') }, formatState.bold) }
+      { toolbarButton(<ItalicIcon />, t('wysiwyg-editor.toolbar.italic'), () => { onToggleMark('italic') }, formatState.italic) }
 
       <div className={ styles.toolbarDivider } />
 
       { formatButton(<UnorderedListIcon />, t('wysiwyg-editor.toolbar.unordered-list'), 'insertUnorderedList', formatState.unorderedList) }
       { formatButton(<OrderedListIcon />, t('wysiwyg-editor.toolbar.ordered-list'), 'insertOrderedList', formatState.orderedList) }
+      { toolbarButton(<IndentIcon />, t('wysiwyg-editor.toolbar.indent'), () => { onIndent('indent') }, false, !inList) }
+      { toolbarButton(<OutdentIcon />, t('wysiwyg-editor.toolbar.outdent'), () => { onIndent('outdent') }, false, !inList) }
       { formatButton(<BlockquoteIcon />, t('wysiwyg-editor.toolbar.blockquote'), 'formatBlock', formatState.blockquote, 'blockquote') }
 
       <div className={ styles.toolbarDivider } />
