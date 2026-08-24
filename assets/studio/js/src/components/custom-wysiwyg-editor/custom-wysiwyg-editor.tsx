@@ -45,8 +45,22 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     }))
 
     useEffect(() => {
-      if (!isNil(contentRef.current) && contentRef.current.innerHTML !== (value ?? '')) {
-        contentRef.current.innerHTML = value ?? ''
+      const content = contentRef.current
+
+      if (isNil(content)) {
+        return
+      }
+
+      // While the field has focus the DOM is the source of truth. The parent may still hold the
+      // previous value when this runs (its onChange can be debounced), and writing that back would
+      // revert the edit that produced it — a heading switch would snap back to the old level — as
+      // well as drop the caret and the browser's undo history.
+      if (content.ownerDocument.activeElement === content) {
+        return
+      }
+
+      if (content.innerHTML !== (value ?? '')) {
+        content.innerHTML = value ?? ''
       }
     }, [value])
 
@@ -171,6 +185,12 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     }
 
     const handleApplyCodeView = (newValue: string): void => {
+      // write through to the DOM rather than relying on the sync effect, which skips while the
+      // content is focused — where focus lands after the modal closes is not ours to predict
+      if (!isNil(contentRef.current)) {
+        contentRef.current.innerHTML = newValue
+      }
+
       onChange?.(newValue)
       setCodeViewOpen(false)
     }
