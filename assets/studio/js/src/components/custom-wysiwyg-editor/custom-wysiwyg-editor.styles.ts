@@ -61,6 +61,31 @@ export const useStyles = createStyles(({ token }) => {
         position: 'absolute'
       },
 
+      // Spelled out rather than left to the browser default: the surrounding application resets
+      // list styling in places, and without markers and indentation of its own the editor cannot
+      // show nesting at all.
+      '& ol, & ul': {
+        margin: '8px 0',
+        paddingInlineStart: '24px'
+      },
+
+      '& ol': {
+        listStyleType: 'decimal'
+      },
+
+      '& ul': {
+        listStyleType: 'disc'
+      },
+
+      '& li': {
+        margin: '2px 0'
+      },
+
+      // a nested list sits tight under its item instead of opening a new block
+      '& li > ol, & li > ul': {
+        margin: '2px 0'
+      },
+
       '& blockquote': {
         margin: '8px 0',
         padding: '4px 12px',

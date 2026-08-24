@@ -10,6 +10,7 @@
 
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { isNil } from 'lodash'
+import { isNestedItem } from './list-nesting'
 
 export interface FormatState {
   bold: boolean
@@ -20,6 +21,8 @@ export interface FormatState {
   block?: string
   /** an item can only be nested under a preceding one, so the first item of a list cannot indent */
   canIndent: boolean
+  /** only an item that is already nested has a level to move out to */
+  canOutdent: boolean
 }
 
 export interface EditorSelection {
@@ -35,7 +38,8 @@ const EMPTY_FORMAT_STATE: FormatState = {
   orderedList: false,
   blockquote: false,
   block: undefined,
-  canIndent: false
+  canIndent: false,
+  canOutdent: false
 }
 
 export type InlineMark = 'bold' | 'italic'
@@ -187,7 +191,8 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
       orderedList: queryState(doc, 'insertOrderedList'),
       blockquote: block === 'blockquote',
       block,
-      canIndent: listItem?.previousElementSibling?.tagName === 'LI'
+      canIndent: listItem?.previousElementSibling?.tagName === 'LI',
+      canOutdent: !isNil(listItem) && isNestedItem(listItem)
     })
   }, [contentRef, getSelection])
 

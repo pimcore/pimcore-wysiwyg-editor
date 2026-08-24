@@ -110,8 +110,6 @@ export const EditorToolbar = ({
     argument?: string
   ): React.JSX.Element => toolbarButton(icon, tooltip, () => { onCommand(command, argument) }, active)
 
-  const inList = formatState.unorderedList || formatState.orderedList
-
   const blockValue = BLOCK_OPTIONS.some((option) => option.value === formatState.block)
     ? formatState.block
     : undefined
@@ -146,7 +144,7 @@ export const EditorToolbar = ({
       { formatButton(<UnorderedListIcon />, t('wysiwyg-editor.toolbar.unordered-list'), 'insertUnorderedList', formatState.unorderedList) }
       { formatButton(<OrderedListIcon />, t('wysiwyg-editor.toolbar.ordered-list'), 'insertOrderedList', formatState.orderedList) }
       { toolbarButton(<IndentIcon />, t('wysiwyg-editor.toolbar.indent'), () => { onIndent('indent') }, false, !formatState.canIndent) }
-      { toolbarButton(<OutdentIcon />, t('wysiwyg-editor.toolbar.outdent'), () => { onIndent('outdent') }, false, !inList) }
+      { toolbarButton(<OutdentIcon />, t('wysiwyg-editor.toolbar.outdent'), () => { onIndent('outdent') }, false, !formatState.canOutdent) }
       { formatButton(<BlockquoteIcon />, t('wysiwyg-editor.toolbar.blockquote'), 'formatBlock', formatState.blockquote, 'blockquote') }
 
       <div className={ styles.toolbarDivider } />

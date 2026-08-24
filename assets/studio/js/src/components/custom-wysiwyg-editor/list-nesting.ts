@@ -14,6 +14,132 @@ const LIST_IN_LIST = 'ol > ol, ol > ul, ul > ol, ul > ul'
 const NESTED_LIST = 'li > ol, li > ul'
 const ITEM_IN_ITEM = 'li > li'
 
+const isList = (node: Node): boolean => node.nodeName === 'OL' || node.nodeName === 'UL'
+
+const HEADING_PATTERN = /^H[1-6]$/
+
+/** The item's own content, ignoring any sub-list hanging off it. */
+const ownChildNodes = (listItem: HTMLElement): Node[] =>
+  Array.from(listItem.childNodes).filter((node) => !isList(node))
+
+/** True when the item carries a sub-list but no text of its own. */
+export const isEmptyItemWithNestedList = (listItem: HTMLElement): boolean =>
+  Array.from(listItem.children).some(isList) &&
+  ownChildNodes(listItem).map((node) => node.textContent ?? '').join('').trim() === ''
+
+/** True when the item sits in a sub-list, i.e. there is a level for it to move out to. */
+export const isNestedItem = (listItem: HTMLElement): boolean =>
+  listItem.parentElement?.parentElement?.tagName === 'LI'
+
+/**
+ * Nests an item under the one above it. Done by hand rather than with `execCommand('indent')`,
+ * which produces markup a list may not contain and needs repairing afterwards — a repair the
+ * browser's undo history knows nothing about.
+ */
+export const indentListItem = (listItem: HTMLElement): void => {
+  const previous = listItem.previousElementSibling
+  const parentList = listItem.parentElement
+
+  if (previous?.tagName !== 'LI' || isNil(parentList)) {
+    return
+  }
+
+  const lastChild = previous.lastElementChild
+  let targetList: Element
+
+  if (!isNil(lastChild) && isList(lastChild)) {
+    targetList = lastChild
+  } else {
+    targetList = listItem.ownerDocument.createElement(parentList.tagName)
+    previous.appendChild(targetList)
+  }
+
+  targetList.appendChild(listItem)
+}
+
+/** Moves a nested item out one level, to sit after the item it was nested under. */
+export const outdentListItem = (listItem: HTMLElement): void => {
+  const parentList = listItem.parentElement
+  const parentItem = parentList?.parentElement
+
+  if (isNil(parentList) || parentItem?.tagName !== 'LI') {
+    return
+  }
+
+  parentItem.parentElement?.insertBefore(listItem, parentItem.nextSibling)
+
+  if (parentList.children.length === 0) {
+    parentList.remove()
+  }
+}
+
+/**
+ * Removes an item, lifting its sub-list into the position it occupied. Backspace cannot do this on
+ * its own: on an item holding nothing but a sub-list it leaves the item in place and deletes into
+ * the *previous* item's text instead, so the empty entry can never be got rid of.
+ */
+export const liftNestedItems = (listItem: HTMLElement): void => {
+  const parentList = listItem.parentNode
+
+  if (isNil(parentList)) {
+    return
+  }
+
+  Array.from(listItem.children)
+    .filter(isList)
+    .forEach((nestedList) => {
+      while (nestedList.firstChild !== null) {
+        parentList.insertBefore(nestedList.firstChild, listItem)
+      }
+    })
+
+  listItem.remove()
+}
+
+/**
+ * Applies a block format to a list item's own content, keeping it inside the item.
+ *
+ * `execCommand('formatBlock')` cannot be used here: inside a list it splits the list around the
+ * item and wraps the fragment in the block — `<ol>…</ol><h2><ol><li>x</li></ol></h2><ol>…</ol>` —
+ * which is invalid and restarts the numbering of everything below.
+ */
+export const applyBlockToListItem = (listItem: HTMLElement, tag: string): void => {
+  const doc = listItem.ownerDocument
+  const existingBlock = Array.from(listItem.children)
+    .find((child) => HEADING_PATTERN.test(child.tagName) || child.tagName === 'BLOCKQUOTE')
+
+  if (tag === 'p') {
+    // back to plain content — drop the wrapper, keep what it held
+    if (!isNil(existingBlock)) {
+      while (existingBlock.firstChild !== null) {
+        listItem.insertBefore(existingBlock.firstChild, existingBlock)
+      }
+
+      existingBlock.remove()
+    }
+
+    return
+  }
+
+  const block = doc.createElement(tag)
+
+  if (!isNil(existingBlock)) {
+    while (existingBlock.firstChild !== null) {
+      block.appendChild(existingBlock.firstChild)
+    }
+
+    existingBlock.replaceWith(block)
+
+    return
+  }
+
+  ownChildNodes(listItem).forEach((node) => {
+    block.appendChild(node)
+  })
+
+  listItem.insertBefore(block, listItem.firstChild)
+}
+
 /**
  * Repairs the markup `execCommand('indent' | 'outdent')` leaves behind. Browsers render their
  * output, but it is not valid HTML — a list may only contain list items — and the numbering it

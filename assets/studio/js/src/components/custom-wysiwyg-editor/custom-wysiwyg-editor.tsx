@@ -24,7 +24,15 @@ import {
   useEditorSelection,
   type InlineMark
 } from './use-editor-selection'
-import { normalizeNestedLists } from './list-nesting'
+import {
+  applyBlockToListItem,
+  indentListItem,
+  isEmptyItemWithNestedList,
+  isNestedItem,
+  liftNestedItems,
+  normalizeNestedLists,
+  outdentListItem
+} from './list-nesting'
 
 const LINKABLE_DOCUMENT_TYPES = ['page', 'hardlink', 'link']
 
@@ -124,17 +132,60 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       }
     }
 
+    /**
+     * Applies a DOM change so that it lands in the browser's undo history.
+     *
+     * Nodes moved or created directly are invisible to `execCommand('undo')`: the change cannot be
+     * reverted, and worse, undo then rolls back an *earlier* edit while keeping this one, leaving
+     * content in a state that never existed. Mutating a copy and writing it back through
+     * `insertHTML` records one ordinary, undoable step.
+     */
+    const mutateWithHistory = (target: HTMLElement, mutate: (draft: HTMLElement) => void): void => {
+      const content = contentRef.current
+      const selection = content?.ownerDocument.defaultView?.getSelection()
+
+      if (isNil(content) || isNil(selection)) {
+        return
+      }
+
+      const doc = content.ownerDocument
+      const draft = target.cloneNode(true) as HTMLElement
+
+      mutate(draft)
+
+      const range = doc.createRange()
+
+      if (target === content) {
+        range.selectNodeContents(target)
+      } else {
+        range.selectNode(target)
+      }
+
+      selection.removeAllRanges()
+      selection.addRange(range)
+      doc.execCommand('insertHTML', false, target === content ? draft.innerHTML : draft.outerHTML)
+    }
+
     const handleCommand = (command: string, argument?: string): void => {
       if (!isEditable) {
         return
       }
 
       focusContent()
-      // deliberately kept on the deprecated-but-universal execCommand API to stay dependency-free;
-      // formatBlock is the one command whose argument format differs per engine — the
-      // angle-bracket form is the only one every browser accepts
-      const commandArgument = command === 'formatBlock' && argument !== undefined ? `<${argument}>` : argument
-      contentRef.current?.ownerDocument.execCommand(command, false, commandArgument)
+
+      const listItem = command === 'formatBlock' ? getCurrentListItem() : null
+
+      if (!isNil(listItem) && argument !== undefined) {
+        // inside a list execCommand would split the list around the item and restart its numbering
+        mutateWithHistory(listItem, (draft) => { applyBlockToListItem(draft, argument) })
+      } else {
+        // deliberately kept on the deprecated-but-universal execCommand API to stay dependency-free;
+        // formatBlock is the one command whose argument format differs per engine — the
+        // angle-bracket form is the only one every browser accepts
+        const commandArgument = command === 'formatBlock' && argument !== undefined ? `<${argument}>` : argument
+        contentRef.current?.ownerDocument.execCommand(command, false, commandArgument)
+      }
+
       emitChange()
       refreshFormatState()
     }
@@ -166,27 +217,18 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
 
       if (!isNil(existingMark)) {
         // unwrap the whole marked run — a simplification the "basic formatting" scope allows
-        const parent = existingMark.parentNode
-
-        if (!isNil(parent)) {
-          while (existingMark.firstChild !== null) {
-            parent.insertBefore(existingMark.firstChild, existingMark)
-          }
-
-          parent.removeChild(existingMark)
-        }
+        const markRange = doc.createRange()
+        markRange.selectNode(existingMark)
+        selection.removeAllRanges()
+        selection.addRange(markRange)
+        doc.execCommand('insertHTML', false, existingMark.innerHTML)
       } else if (range.collapsed) {
         // no selection to wrap — let the browser handle "type the next characters marked"
         doc.execCommand(mark)
       } else {
-        const wrapper = doc.createElement(INLINE_MARKS[mark].tag)
-        wrapper.appendChild(range.extractContents())
-        range.insertNode(wrapper)
-
-        const wrappedRange = doc.createRange()
-        wrappedRange.selectNodeContents(wrapper)
-        selection.removeAllRanges()
-        selection.addRange(wrappedRange)
+        const draft = doc.createElement('div')
+        draft.appendChild(range.cloneContents())
+        doc.execCommand('insertHTML', false, `<${INLINE_MARKS[mark].tag}>${draft.innerHTML}</${INLINE_MARKS[mark].tag}>`)
       }
 
       emitChange()
@@ -222,9 +264,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * in a margin-styled blockquote, which is not something this editor should produce.
      */
     const handleIndent = (command: 'indent' | 'outdent'): void => {
-      const content = contentRef.current
-
-      if (!isEditable || isNil(content)) {
+      if (!isEditable) {
         return
       }
 
@@ -236,15 +276,63 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         return
       }
 
-      content.ownerDocument.execCommand(command)
-      normalizeNestedLists(content)
+      const list = listItem.parentElement
+
+      if (isNil(list)) {
+        return
+      }
+
+      // the whole list is rewritten in one step, so indenting is a single undoable action
+      const itemIndex = Array.from(list.children).indexOf(listItem)
+
+      mutateWithHistory(list, (draft) => {
+        const draftItem = draft.children[itemIndex]
+
+        if (!(draftItem instanceof HTMLElement)) {
+          return
+        }
+
+        if (command === 'indent') {
+          indentListItem(draftItem)
+        } else {
+          outdentListItem(draftItem)
+        }
+
+        normalizeNestedLists(draft)
+      })
+
       emitChange()
       refreshFormatState()
     }
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+      const listItem = getCurrentListItem()
+
+      if (event.key === 'Backspace' && !isNil(listItem) && isEmptyItemWithNestedList(listItem)) {
+        // browsers refuse to remove such an item and delete into the previous one's text instead
+        event.preventDefault()
+
+        const list = listItem.parentElement
+        const itemIndex = isNil(list) ? -1 : Array.from(list.children).indexOf(listItem)
+
+        if (!isNil(list) && itemIndex >= 0) {
+          mutateWithHistory(list, (draft) => {
+            const draftItem = draft.children[itemIndex]
+
+            if (draftItem instanceof HTMLElement) {
+              liftNestedItems(draftItem)
+            }
+          })
+        }
+
+        emitChange()
+        refreshFormatState()
+
+        return
+      }
+
       // Tab only indents within a list; everywhere else it must keep moving focus
-      if (event.key !== 'Tab' || isNil(getCurrentListItem())) {
+      if (event.key !== 'Tab' || isNil(listItem)) {
         return
       }
 
