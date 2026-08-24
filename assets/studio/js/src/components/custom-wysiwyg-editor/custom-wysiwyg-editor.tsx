@@ -10,7 +10,7 @@
 
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { type WysiwygEditorRef, type WysiwygProps } from '@pimcore/studio-ui-bundle/modules/wysiwyg'
-import { type DragAndDropInfo } from '@pimcore/studio-ui-bundle/components'
+import { createImageThumbnailUrl, type DragAndDropInfo } from '@pimcore/studio-ui-bundle/components'
 import { escapeHtml, toCssDimension } from '@pimcore/studio-ui-bundle/utils'
 import { isNil } from 'lodash'
 import { useStyles } from './custom-wysiwyg-editor.styles'
@@ -35,6 +35,14 @@ import {
 } from './list-nesting'
 
 const LINKABLE_DOCUMENT_TYPES = ['page', 'hardlink', 'link']
+
+/** Width a dropped image is placed at, and the thumbnail width requested for it. */
+const DROPPED_IMAGE_WIDTH = 600
+
+/** Formats a browser can display as-is, so a small one needs no thumbnail at all. */
+const BROWSER_RENDERABLE_EXTENSIONS = ['jpg', 'jpeg', 'gif', 'png', 'webp', 'avif']
+
+const getFileExtension = (path: string): string => path.split('.').pop()?.toLowerCase() ?? ''
 
 export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
   ({ value, onChange, disabled, width, height, placeholder }, ref): React.JSX.Element => {
@@ -400,6 +408,40 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       insertHtml(`<a href="${escapeHtml(url)}">${escapeHtml(text !== '' ? text : url)}</a>`)
     }
 
+    /**
+     * An image asset is dropped in as the image itself rather than a link to it.
+     *
+     * `src` points at the Studio thumbnail endpoint, which only an authenticated user can read —
+     * that is fine, and is what the classic editor does too: on output Pimcore matches the
+     * `pimcore_id`/`pimcore_type` attributes, replaces `src` with the asset's public path and
+     * regenerates a thumbnail from the width attribute (`Pimcore\Tool\Text::wysiwygText()`).
+     */
+    const buildImageHtml = (data: Record<string, any>): string => {
+      const assetId = Number(data.id)
+      const assetWidth = Number(data.width)
+      const knownWidth = Number.isFinite(assetWidth) && assetWidth > 0
+      const fitsUnscaled = knownWidth &&
+        assetWidth < DROPPED_IMAGE_WIDTH &&
+        BROWSER_RENDERABLE_EXTENSIONS.includes(getFileExtension(String(data.fullPath)))
+
+      const width = knownWidth ? Math.min(assetWidth, DROPPED_IMAGE_WIDTH) : DROPPED_IMAGE_WIDTH
+      const source = fitsUnscaled
+        ? String(data.fullPath)
+        : createImageThumbnailUrl(assetId, { width: DROPPED_IMAGE_WIDTH, mimeType: 'JPEG' })
+
+      const attributes = [
+        `src="${escapeHtml(source)}"`,
+        `width="${width}"`,
+        `alt="${escapeHtml(String(data.filename ?? data.key ?? ''))}"`,
+        `pimcore_id="${escapeHtml(String(data.id))}"`,
+        'pimcore_type="asset"',
+        // tells Pimcore to keep the original on output, since it is already small enough
+        ...(fitsUnscaled ? ['pimcore_disable_thumbnail="true"'] : [])
+      ]
+
+      return `<img ${attributes.join(' ')} />`
+    }
+
     const handleElementDrop = (info: DragAndDropInfo): void => {
       if (!isEditable) {
         return
@@ -424,6 +466,13 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         content.contains(selection.getRangeAt(0).commonAncestorContainer)
         ? selection.toString()
         : ''
+
+      // selected text is there to become a link label; replacing it with an image would drop it
+      if (info.type === 'asset' && data.type === 'image' && selectedText === '') {
+        insertHtml(buildImageHtml(data))
+
+        return
+      }
 
       const linkText = selectedText !== '' ? selectedText : String(data.key ?? data.fullPath)
 

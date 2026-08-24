@@ -61,6 +61,13 @@ export const useStyles = createStyles(({ token }) => {
         position: 'absolute'
       },
 
+      // a dropped image carries its own width attribute, which must still give way to a field
+      // narrower than the image
+      '& img': {
+        maxWidth: '100%',
+        height: 'auto'
+      },
+
       // Spelled out rather than left to the browser default: the surrounding application resets
       // list styling in places, and without markers and indentation of its own the editor cannot
       // show nesting at all.
