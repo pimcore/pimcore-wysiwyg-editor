@@ -1,0 +1,24 @@
+wysiwyg-editor.toolbar.block-format: Format
+wysiwyg-editor.toolbar.bold: Fet
+wysiwyg-editor.toolbar.italic: Kursiv
+wysiwyg-editor.toolbar.unordered-list: Punktlista
+wysiwyg-editor.toolbar.ordered-list: Numrerad lista
+wysiwyg-editor.toolbar.blockquote: Blockcitat
+wysiwyg-editor.toolbar.link: Infoga länk
+wysiwyg-editor.toolbar.remove-format: Ta bort formatering
+wysiwyg-editor.toolbar.code-view: Kodvy
+wysiwyg-editor.toolbar.undo: Ångra
+wysiwyg-editor.toolbar.redo: Gör om
+wysiwyg-editor.block.paragraph: Stycke
+wysiwyg-editor.block.heading-1: Rubrik 1
+wysiwyg-editor.block.heading-2: Rubrik 2
+wysiwyg-editor.block.heading-3: Rubrik 3
+wysiwyg-editor.block.heading-4: Rubrik 4
+wysiwyg-editor.block.heading-5: Rubrik 5
+wysiwyg-editor.block.heading-6: Rubrik 6
+wysiwyg-editor.link.url: URL
+wysiwyg-editor.link.text: Länktext (valfritt)
+wysiwyg-editor.link.insert: Infoga
+wysiwyg-editor.code-view.title: Redigera HTML-källkod
+wysiwyg-editor.code-view.apply: Tillämpa
+wysiwyg-editor.code-view.cancel: Avbryt

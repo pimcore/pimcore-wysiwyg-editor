@@ -1,0 +1,24 @@
+wysiwyg-editor.toolbar.block-format: Format
+wysiwyg-editor.toolbar.bold: Fet
+wysiwyg-editor.toolbar.italic: Kursiv
+wysiwyg-editor.toolbar.unordered-list: Punktliste
+wysiwyg-editor.toolbar.ordered-list: Nummerert liste
+wysiwyg-editor.toolbar.blockquote: Blokksitat
+wysiwyg-editor.toolbar.link: Sett inn lenke
+wysiwyg-editor.toolbar.remove-format: Fjern formatering
+wysiwyg-editor.toolbar.code-view: Kodevisning
+wysiwyg-editor.toolbar.undo: Angre
+wysiwyg-editor.toolbar.redo: Gjør om
+wysiwyg-editor.block.paragraph: Avsnitt
+wysiwyg-editor.block.heading-1: Overskrift 1
+wysiwyg-editor.block.heading-2: Overskrift 2
+wysiwyg-editor.block.heading-3: Overskrift 3
+wysiwyg-editor.block.heading-4: Overskrift 4
+wysiwyg-editor.block.heading-5: Overskrift 5
+wysiwyg-editor.block.heading-6: Overskrift 6
+wysiwyg-editor.link.url: URL
+wysiwyg-editor.link.text: Lenketekst (valgfritt)
+wysiwyg-editor.link.insert: Sett inn
+wysiwyg-editor.code-view.title: Rediger HTML-kilde
+wysiwyg-editor.code-view.apply: Bruk
+wysiwyg-editor.code-view.cancel: Avbryt

@@ -9,6 +9,13 @@ wysiwyg-editor.toolbar.remove-format: Remove formatting
 wysiwyg-editor.toolbar.code-view: Code view
 wysiwyg-editor.toolbar.undo: Undo
 wysiwyg-editor.toolbar.redo: Redo
+wysiwyg-editor.block.paragraph: Paragraph
+wysiwyg-editor.block.heading-1: Heading 1
+wysiwyg-editor.block.heading-2: Heading 2
+wysiwyg-editor.block.heading-3: Heading 3
+wysiwyg-editor.block.heading-4: Heading 4
+wysiwyg-editor.block.heading-5: Heading 5
+wysiwyg-editor.block.heading-6: Heading 6
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Link text (optional)
 wysiwyg-editor.link.insert: Insert

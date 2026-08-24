@@ -36,10 +36,13 @@ export interface EditorToolbarProps {
 }
 
 const BLOCK_OPTIONS = [
-  { value: 'p', label: 'Paragraph' },
-  { value: 'h1', label: 'Heading 1' },
-  { value: 'h2', label: 'Heading 2' },
-  { value: 'h3', label: 'Heading 3' }
+  { value: 'p', labelKey: 'wysiwyg-editor.block.paragraph' },
+  { value: 'h1', labelKey: 'wysiwyg-editor.block.heading-1' },
+  { value: 'h2', labelKey: 'wysiwyg-editor.block.heading-2' },
+  { value: 'h3', labelKey: 'wysiwyg-editor.block.heading-3' },
+  { value: 'h4', labelKey: 'wysiwyg-editor.block.heading-4' },
+  { value: 'h5', labelKey: 'wysiwyg-editor.block.heading-5' },
+  { value: 'h6', labelKey: 'wysiwyg-editor.block.heading-6' }
 ]
 
 export const EditorToolbar = ({
@@ -115,7 +118,7 @@ export const EditorToolbar = ({
 
       <Select
         onChange={ (value: string) => { onCommand('formatBlock', value) } }
-        options={ BLOCK_OPTIONS }
+        options={ BLOCK_OPTIONS.map(({ value, labelKey }) => ({ value, label: t(labelKey) })) }
         placeholder={ t('wysiwyg-editor.toolbar.block-format') }
         popupMatchSelectWidth={ false }
         size="small"

@@ -1,0 +1,24 @@
+wysiwyg-editor.toolbar.block-format: Formato
+wysiwyg-editor.toolbar.bold: Grassetto
+wysiwyg-editor.toolbar.italic: Corsivo
+wysiwyg-editor.toolbar.unordered-list: Elenco puntato
+wysiwyg-editor.toolbar.ordered-list: Elenco numerato
+wysiwyg-editor.toolbar.blockquote: Citazione
+wysiwyg-editor.toolbar.link: Inserisci collegamento
+wysiwyg-editor.toolbar.remove-format: Rimuovi formattazione
+wysiwyg-editor.toolbar.code-view: Vista codice
+wysiwyg-editor.toolbar.undo: Annulla
+wysiwyg-editor.toolbar.redo: Ripristina
+wysiwyg-editor.block.paragraph: Paragrafo
+wysiwyg-editor.block.heading-1: Titolo 1
+wysiwyg-editor.block.heading-2: Titolo 2
+wysiwyg-editor.block.heading-3: Titolo 3
+wysiwyg-editor.block.heading-4: Titolo 4
+wysiwyg-editor.block.heading-5: Titolo 5
+wysiwyg-editor.block.heading-6: Titolo 6
+wysiwyg-editor.link.url: URL
+wysiwyg-editor.link.text: Testo del collegamento (opzionale)
+wysiwyg-editor.link.insert: Inserisci
+wysiwyg-editor.code-view.title: Modifica sorgente HTML
+wysiwyg-editor.code-view.apply: Applica
+wysiwyg-editor.code-view.cancel: Annulla

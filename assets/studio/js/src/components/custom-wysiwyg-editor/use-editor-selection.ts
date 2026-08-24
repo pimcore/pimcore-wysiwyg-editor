@@ -35,12 +35,57 @@ const EMPTY_FORMAT_STATE: FormatState = {
   block: undefined
 }
 
+const BOLD_TAGS = ['B', 'STRONG']
+const ITALIC_TAGS = ['I', 'EM']
+
 const queryState = (doc: Document, command: string): boolean => {
   try {
     return doc.queryCommandState(command)
   } catch {
     return false
   }
+}
+
+const isBoldWeight = (weight: string): boolean => {
+  if (weight === 'bold' || weight === 'bolder') {
+    return true
+  }
+
+  const numericWeight = Number(weight)
+
+  return !Number.isNaN(numericWeight) && numericWeight >= 600
+}
+
+/**
+ * The node the caret sits in. For a range that starts on an element (`selectNodeContents`) the
+ * start container is the element itself, so descend to the child the offset points at.
+ */
+const resolveStartNode = (range: Range): Node => {
+  const { startContainer, startOffset } = range
+
+  return startContainer.nodeType === Node.ELEMENT_NODE
+    ? startContainer.childNodes[startOffset] ?? startContainer
+    : startContainer
+}
+
+/**
+ * `queryCommandState('bold' | 'italic')` reports the *computed* style, so it is true for anything
+ * inside a heading purely because headings default to font-weight 700 — which lights up the bold
+ * button when the user has applied no bold at all. The toolbar has to show whether the mark was
+ * explicitly applied, so look for one in the ancestor chain instead.
+ */
+const hasInlineMark = (root: HTMLElement, node: Node, tags: string[], isStyled: (element: HTMLElement) => boolean): boolean => {
+  let current: Node | null = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode
+
+  while (current instanceof HTMLElement && current !== root && root.contains(current)) {
+    if (tags.includes(current.nodeName) || isStyled(current)) {
+      return true
+    }
+
+    current = current.parentElement
+  }
+
+  return false
 }
 
 /**
@@ -86,18 +131,21 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
       return
     }
 
+    const range = selection.getRangeAt(0)
+
     // keep the last known state while the caret sits outside, otherwise the toolbar would reset
     // itself the moment a toolbar control takes focus
-    if (!content.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+    if (!content.contains(range.commonAncestorContainer)) {
       return
     }
 
     const doc = content.ownerDocument
     const block = queryBlockTag(doc)
+    const startNode = resolveStartNode(range)
 
     setFormatState({
-      bold: queryState(doc, 'bold'),
-      italic: queryState(doc, 'italic'),
+      bold: hasInlineMark(content, startNode, BOLD_TAGS, (element) => isBoldWeight(element.style.fontWeight)),
+      italic: hasInlineMark(content, startNode, ITALIC_TAGS, (element) => element.style.fontStyle === 'italic'),
       unorderedList: queryState(doc, 'insertUnorderedList'),
       orderedList: queryState(doc, 'insertOrderedList'),
       blockquote: block === 'blockquote',
