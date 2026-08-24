@@ -23,6 +23,8 @@ export interface FormatState {
   canIndent: boolean
   /** only an item that is already nested has a level to move out to */
   canOutdent: boolean
+  /** text is selected, so a link can take it as its label */
+  hasSelection: boolean
 }
 
 export interface EditorSelection {
@@ -39,7 +41,8 @@ const EMPTY_FORMAT_STATE: FormatState = {
   blockquote: false,
   block: undefined,
   canIndent: false,
-  canOutdent: false
+  canOutdent: false,
+  hasSelection: false
 }
 
 export type InlineMark = 'bold' | 'italic'
@@ -192,7 +195,8 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
       blockquote: block === 'blockquote',
       block,
       canIndent: listItem?.previousElementSibling?.tagName === 'LI',
-      canOutdent: !isNil(listItem) && isNestedItem(listItem)
+      canOutdent: !isNil(listItem) && isNestedItem(listItem),
+      hasSelection: !range.collapsed
     })
   }, [contentRef, getSelection])
 

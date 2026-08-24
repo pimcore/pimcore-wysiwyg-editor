@@ -151,29 +151,38 @@ export const EditorToolbar = ({
 
       <Popover
         content={
-          <Space direction="vertical">
-            <Input
-              onChange={ (event) => { setLinkUrl(event.target.value) } }
-              onPressEnter={ handleInsertLink }
-              placeholder={ t('wysiwyg-editor.link.url') }
-              size="small"
-              value={ linkUrl }
-            />
-            <Input
-              onChange={ (event) => { setLinkText(event.target.value) } }
-              onPressEnter={ handleInsertLink }
-              placeholder={ t('wysiwyg-editor.link.text') }
-              size="small"
-              value={ linkText }
-            />
-            <Button
-              onClick={ handleInsertLink }
-              size="small"
-              type="primary"
-            >
-              { t('wysiwyg-editor.link.insert') }
-            </Button>
-          </Space>
+          // The popover renders in a portal, but React still bubbles its events through the React
+          // tree - so without this the toolbar's preventDefault below reaches these inputs and they
+          // can never take focus, leaving the fields impossible to type into.
+          <div onMouseDown={ (event) => { event.stopPropagation() } }>
+            <Space direction="vertical">
+              <Input
+                autoFocus
+                onChange={ (event) => { setLinkUrl(event.target.value) } }
+                onPressEnter={ handleInsertLink }
+                placeholder={ t('wysiwyg-editor.link.url') }
+                size="small"
+                value={ linkUrl }
+              />
+              { !formatState.hasSelection && (
+                <Input
+                  onChange={ (event) => { setLinkText(event.target.value) } }
+                  onPressEnter={ handleInsertLink }
+                  placeholder={ t('wysiwyg-editor.link.text') }
+                  size="small"
+                  value={ linkText }
+                />
+              ) }
+              <Button
+                disabled={ linkUrl.trim() === '' }
+                onClick={ handleInsertLink }
+                size="small"
+                type="primary"
+              >
+                { t('wysiwyg-editor.link.insert') }
+              </Button>
+            </Space>
+          </div>
         }
         onOpenChange={ onLinkPopoverOpenChange }
         open={ linkPopoverOpen }

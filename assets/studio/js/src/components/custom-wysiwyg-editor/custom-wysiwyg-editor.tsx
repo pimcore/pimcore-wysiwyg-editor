@@ -11,7 +11,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { type WysiwygEditorRef, type WysiwygProps } from '@pimcore/studio-ui-bundle/modules/wysiwyg'
 import { type DragAndDropInfo } from '@pimcore/studio-ui-bundle/components'
-import { escapeHtml, pasteHtmlAtCaret, toCssDimension } from '@pimcore/studio-ui-bundle/utils'
+import { escapeHtml, toCssDimension } from '@pimcore/studio-ui-bundle/utils'
 import { isNil } from 'lodash'
 import { useStyles } from './custom-wysiwyg-editor.styles'
 import { EditorToolbar } from './editor-toolbar'
@@ -345,20 +345,59 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         return
       }
 
-      const currentWindow = contentRef.current?.ownerDocument.defaultView
+      focusContent()
 
-      if (isNil(currentWindow)) {
+      const doc = contentRef.current?.ownerDocument
+
+      if (isNil(doc)) {
         return
       }
 
-      focusContent()
-      pasteHtmlAtCaret(html, currentWindow)
+      // insertHTML rather than inserting nodes directly, so the insertion is undoable
+      doc.execCommand('insertHTML', false, html)
       emitChange()
       refreshFormatState()
     }
 
+    /** True when something inside the content is selected, rather than just a caret. */
+    const hasContentSelection = (): boolean => {
+      const content = contentRef.current
+      const selection = content?.ownerDocument.defaultView?.getSelection()
+
+      if (isNil(content) || isNil(selection) || selection.rangeCount === 0) {
+        return false
+      }
+
+      const range = selection.getRangeAt(0)
+
+      return !range.collapsed && content.contains(range.commonAncestorContainer)
+    }
+
     const handleInsertLink = (url: string, text: string): void => {
-      insertHtml(`<a href="${escapeHtml(url)}">${escapeHtml(text)}</a>`)
+      if (!isEditable) {
+        return
+      }
+
+      focusContent()
+
+      const doc = contentRef.current?.ownerDocument
+
+      if (isNil(doc)) {
+        return
+      }
+
+      if (hasContentSelection()) {
+        // Wrap the selection where it is. Rebuilding it as markup instead would lose the formatting
+        // around it: a selection inside a `b` clones as bare text, and replacing it collapses the
+        // now-empty `b`, so linking bold text would drop the bold.
+        doc.execCommand('createLink', false, url)
+        emitChange()
+        refreshFormatState()
+
+        return
+      }
+
+      insertHtml(`<a href="${escapeHtml(url)}">${escapeHtml(text !== '' ? text : url)}</a>`)
     }
 
     const handleElementDrop = (info: DragAndDropInfo): void => {
