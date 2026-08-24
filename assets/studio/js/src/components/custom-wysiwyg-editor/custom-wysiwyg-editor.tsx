@@ -10,19 +10,31 @@
 
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { type WysiwygEditorRef, type WysiwygProps } from '@pimcore/studio-ui-bundle/modules/wysiwyg'
-import { CodeEditor, type DragAndDropInfo } from '@pimcore/studio-ui-bundle/components'
+import { type DragAndDropInfo } from '@pimcore/studio-ui-bundle/components'
 import { escapeHtml, pasteHtmlAtCaret, toCssDimension } from '@pimcore/studio-ui-bundle/utils'
 import { isNil } from 'lodash'
 import { useStyles } from './custom-wysiwyg-editor.styles'
 import { EditorToolbar } from './editor-toolbar'
+import { CodeViewModal } from './code-view-modal'
+import { useEditorSelection } from './use-editor-selection'
 
 const LINKABLE_DOCUMENT_TYPES = ['page', 'hardlink', 'link']
 
 export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
   ({ value, onChange, disabled, width, height, placeholder }, ref): React.JSX.Element => {
+    const wrapperRef = useRef<HTMLDivElement>(null)
     const contentRef = useRef<HTMLDivElement>(null)
-    const [codeView, setCodeView] = useState(false)
+    const [hasFocus, setHasFocus] = useState(false)
+    const [linkPopoverOpen, setLinkPopoverOpen] = useState(false)
+    const [codeViewOpen, setCodeViewOpen] = useState(false)
     const { styles } = useStyles()
+
+    const isEditable = disabled !== true
+    // the toolbar stays out of the way until the field is actually being worked on, but must
+    // survive controls that render in a portal and therefore steal focus out of the wrapper
+    const showToolbar = isEditable && (hasFocus || linkPopoverOpen || codeViewOpen)
+
+    const { formatState, refreshFormatState, restoreSelection } = useEditorSelection(contentRef, showToolbar)
 
     const valueIsEmpty = isNil(value) || value.trim() === '' || value === '<p></p>' || value === '<br>'
 
@@ -33,10 +45,10 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     }))
 
     useEffect(() => {
-      if (!codeView && !isNil(contentRef.current) && contentRef.current.innerHTML !== (value ?? '')) {
+      if (!isNil(contentRef.current) && contentRef.current.innerHTML !== (value ?? '')) {
         contentRef.current.innerHTML = value ?? ''
       }
-    }, [value, codeView])
+    }, [value])
 
     const emitChange = (): void => {
       if (!isNil(contentRef.current)) {
@@ -48,21 +60,41 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       emitChange()
     }
 
+    const handleFocus = (): void => {
+      setHasFocus(true)
+    }
+
+    const handleBlur = (event: React.FocusEvent<HTMLDivElement>): void => {
+      const nextTarget = event.relatedTarget
+
+      if (nextTarget instanceof Node && wrapperRef.current?.contains(nextTarget) === true) {
+        return
+      }
+
+      setHasFocus(false)
+    }
+
     const focusContent = (): void => {
       const content = contentRef.current
+
       if (isNil(content)) {
         return
       }
 
-      content.focus()
-
-      const selection = window.getSelection()
+      const selection = content.ownerDocument.defaultView?.getSelection()
       const caretIsInside = !isNil(selection) &&
         selection.rangeCount > 0 &&
         content.contains(selection.getRangeAt(0).commonAncestorContainer)
 
-      if (!caretIsInside && !isNil(selection)) {
-        const range = document.createRange()
+      content.focus({ preventScroll: true })
+
+      if (caretIsInside || restoreSelection()) {
+        return
+      }
+
+      // nothing usable to restore — put the caret at the end of the content
+      if (!isNil(selection)) {
+        const range = content.ownerDocument.createRange()
         range.selectNodeContents(content)
         range.collapse(false)
         selection.removeAllRanges()
@@ -71,7 +103,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     }
 
     const handleCommand = (command: string, argument?: string): void => {
-      if (disabled === true || codeView) {
+      if (!isEditable) {
         return
       }
 
@@ -80,18 +112,26 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       // formatBlock is the one command whose argument format differs per engine — the
       // angle-bracket form is the only one every browser accepts
       const commandArgument = command === 'formatBlock' && argument !== undefined ? `<${argument}>` : argument
-      document.execCommand(command, false, commandArgument)
+      contentRef.current?.ownerDocument.execCommand(command, false, commandArgument)
       emitChange()
+      refreshFormatState()
     }
 
     const insertHtml = (html: string): void => {
-      if (disabled === true || codeView) {
+      if (!isEditable) {
+        return
+      }
+
+      const currentWindow = contentRef.current?.ownerDocument.defaultView
+
+      if (isNil(currentWindow)) {
         return
       }
 
       focusContent()
-      pasteHtmlAtCaret(html, window)
+      pasteHtmlAtCaret(html, currentWindow)
       emitChange()
+      refreshFormatState()
     }
 
     const handleInsertLink = (url: string, text: string): void => {
@@ -99,11 +139,12 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     }
 
     const handleElementDrop = (info: DragAndDropInfo): void => {
-      if (disabled === true || codeView) {
+      if (!isEditable) {
         return
       }
 
       const data = info.data
+
       if (isNil(data?.id) || isNil(data?.fullPath)) {
         return
       }
@@ -113,12 +154,12 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       }
 
       const pimcoreType = info.type === 'data-object' ? 'object' : info.type
-
-      const selection = window.getSelection()
+      const content = contentRef.current
+      const selection = content?.ownerDocument.defaultView?.getSelection()
       const selectedText = !isNil(selection) &&
-        !isNil(contentRef.current) &&
+        !isNil(content) &&
         selection.rangeCount > 0 &&
-        contentRef.current.contains(selection.getRangeAt(0).commonAncestorContainer)
+        content.contains(selection.getRangeAt(0).commonAncestorContainer)
         ? selection.toString()
         : ''
 
@@ -129,44 +170,48 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       )
     }
 
-    const handleToggleCodeView = (): void => {
-      setCodeView((current) => !current)
+    const handleApplyCodeView = (newValue: string): void => {
+      onChange?.(newValue)
+      setCodeViewOpen(false)
     }
 
     return (
       <div
         className={ styles.wrapper }
+        onBlur={ handleBlur }
+        onFocus={ handleFocus }
+        ref={ wrapperRef }
         style={ { maxWidth: toCssDimension(width) } }
       >
-        <EditorToolbar
-          codeView={ codeView }
-          onCommand={ handleCommand }
-          onInsertLink={ handleInsertLink }
-          onToggleCodeView={ handleToggleCodeView }
+        { showToolbar && (
+          <EditorToolbar
+            formatState={ formatState }
+            linkPopoverOpen={ linkPopoverOpen }
+            onCommand={ handleCommand }
+            onInsertLink={ handleInsertLink }
+            onLinkPopoverOpenChange={ setLinkPopoverOpen }
+            onOpenCodeView={ () => { setCodeViewOpen(true) } }
+          />
+        ) }
+
+        <div
+          className={ styles.content }
+          contentEditable={ isEditable }
+          data-empty={ valueIsEmpty }
+          data-placeholder={ placeholder }
+          onInput={ handleInput }
+          ref={ contentRef }
+          style={ { minHeight: toCssDimension(height) } }
+          suppressContentEditableWarning
         />
 
-        { codeView
-          ? (
-            <div className={ styles.codeView }>
-              <CodeEditor
-                onChange={ (newValue: string) => { onChange?.(newValue) } }
-                preset="html"
-                readOnly={ disabled }
-                value={ value ?? '' }
-              />
-            </div>
-            )
-          : (
-            <div
-              className={ styles.content }
-              contentEditable={ disabled !== true }
-              data-empty={ valueIsEmpty }
-              data-placeholder={ placeholder }
-              onInput={ handleInput }
-              ref={ contentRef }
-              style={ { minHeight: toCssDimension(height) } }
-            />
-            ) }
+        <CodeViewModal
+          onApply={ handleApplyCodeView }
+          onCancel={ () => { setCodeViewOpen(false) } }
+          open={ codeViewOpen }
+          readOnly={ !isEditable }
+          value={ value ?? '' }
+        />
       </div>
     )
   }

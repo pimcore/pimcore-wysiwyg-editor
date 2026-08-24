@@ -94,6 +94,20 @@ export const ClearFormatIcon = (): React.JSX.Element => (
   </ToolbarIcon>
 )
 
+export const UndoIcon = (): React.JSX.Element => (
+  <ToolbarIcon>
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+  </ToolbarIcon>
+)
+
+export const RedoIcon = (): React.JSX.Element => (
+  <ToolbarIcon>
+    <path d="m15 14 5-5-5-5" />
+    <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+  </ToolbarIcon>
+)
+
 export const CodeViewIcon = (): React.JSX.Element => (
   <ToolbarIcon>
     <polyline points="16 18 22 12 16 6" />

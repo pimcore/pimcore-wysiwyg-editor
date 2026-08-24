@@ -32,6 +32,15 @@ export const useStyles = createStyles(({ token }) => {
       borderBottom: `1px solid ${token.colorBorderSecondary}`
     },
 
+    toolbarButtonActive: {
+      color: token.colorPrimary,
+      backgroundColor: token.controlItemBgActive,
+
+      '&:hover': {
+        backgroundColor: `${token.controlItemBgActiveHover} !important`
+      }
+    },
+
     toolbarDivider: {
       width: '1px',
       alignSelf: 'stretch',
@@ -62,7 +71,10 @@ export const useStyles = createStyles(({ token }) => {
 
     codeView: {
       '& .cm-editor': {
-        minHeight: '120px'
+        minHeight: '360px',
+        maxHeight: '60vh',
+        border: `1px solid ${token.colorBorder}`,
+        borderRadius: `${token.borderRadius}px`
       }
     }
   }

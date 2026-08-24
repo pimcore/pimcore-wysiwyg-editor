@@ -7,6 +7,11 @@ wysiwyg-editor.toolbar.blockquote: Blockquote
 wysiwyg-editor.toolbar.link: Insert link
 wysiwyg-editor.toolbar.remove-format: Remove formatting
 wysiwyg-editor.toolbar.code-view: Code view
+wysiwyg-editor.toolbar.undo: Undo
+wysiwyg-editor.toolbar.redo: Redo
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Link text (optional)
 wysiwyg-editor.link.insert: Insert
+wysiwyg-editor.code-view.title: Edit HTML source
+wysiwyg-editor.code-view.apply: Apply
+wysiwyg-editor.code-view.cancel: Cancel

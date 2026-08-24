@@ -12,6 +12,7 @@ import React, { useState } from 'react'
 import { Button, Input, Popover, Select, Space, Tooltip } from 'antd'
 import { useTranslation } from '@pimcore/studio-ui-bundle/app'
 import { useStyles } from './custom-wysiwyg-editor.styles'
+import { type FormatState } from './use-editor-selection'
 import {
   BlockquoteIcon,
   BoldIcon,
@@ -20,14 +21,18 @@ import {
   ItalicIcon,
   LinkIcon,
   OrderedListIcon,
+  RedoIcon,
+  UndoIcon,
   UnorderedListIcon
 } from './toolbar-icons'
 
 export interface EditorToolbarProps {
+  formatState: FormatState
   onCommand: (command: string, argument?: string) => void
   onInsertLink: (url: string, text: string) => void
-  codeView: boolean
-  onToggleCodeView: () => void
+  linkPopoverOpen: boolean
+  onLinkPopoverOpenChange: (open: boolean) => void
+  onOpenCodeView: () => void
 }
 
 const BLOCK_OPTIONS = [
@@ -37,10 +42,16 @@ const BLOCK_OPTIONS = [
   { value: 'h3', label: 'Heading 3' }
 ]
 
-export const EditorToolbar = ({ onCommand, onInsertLink, codeView, onToggleCodeView }: EditorToolbarProps): React.JSX.Element => {
+export const EditorToolbar = ({
+  formatState,
+  onCommand,
+  onInsertLink,
+  linkPopoverOpen,
+  onLinkPopoverOpenChange,
+  onOpenCodeView
+}: EditorToolbarProps): React.JSX.Element => {
   const { t } = useTranslation()
-  const { styles } = useStyles()
-  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false)
+  const { styles, cx } = useStyles()
   const [linkUrl, setLinkUrl] = useState('')
   const [linkText, setLinkText] = useState('')
 
@@ -57,16 +68,22 @@ export const EditorToolbar = ({ onCommand, onInsertLink, codeView, onToggleCodeV
     onInsertLink(linkUrl.trim(), linkText.trim() !== '' ? linkText.trim() : linkUrl.trim())
     setLinkUrl('')
     setLinkText('')
-    setLinkPopoverOpen(false)
+    onLinkPopoverOpenChange(false)
   }
 
-  const formatButton = (icon: React.ReactNode, tooltip: string, command: string, argument?: string): React.JSX.Element => (
+  const toolbarButton = (
+    icon: React.ReactNode,
+    tooltip: string,
+    onClick: () => void,
+    active = false
+  ): React.JSX.Element => (
     <Tooltip title={ tooltip }>
       <Button
         aria-label={ tooltip }
-        disabled={ codeView }
+        aria-pressed={ active }
+        className={ cx(active && styles.toolbarButtonActive) }
         icon={ icon }
-        onClick={ () => { onCommand(command, argument) } }
+        onClick={ onClick }
         onMouseDown={ preventFocusSteal }
         size="small"
         type="text"
@@ -74,32 +91,48 @@ export const EditorToolbar = ({ onCommand, onInsertLink, codeView, onToggleCodeV
     </Tooltip>
   )
 
+  const formatButton = (
+    icon: React.ReactNode,
+    tooltip: string,
+    command: string,
+    active = false,
+    argument?: string
+  ): React.JSX.Element => toolbarButton(icon, tooltip, () => { onCommand(command, argument) }, active)
+
+  const blockValue = BLOCK_OPTIONS.some((option) => option.value === formatState.block)
+    ? formatState.block
+    : undefined
+
   return (
     <div
       className={ styles.toolbar }
       onMouseDown={ preventFocusSteal }
     >
+      { toolbarButton(<UndoIcon />, t('wysiwyg-editor.toolbar.undo'), () => { onCommand('undo') }) }
+      { toolbarButton(<RedoIcon />, t('wysiwyg-editor.toolbar.redo'), () => { onCommand('redo') }) }
+
+      <div className={ styles.toolbarDivider } />
+
       <Select
-        disabled={ codeView }
         onChange={ (value: string) => { onCommand('formatBlock', value) } }
         options={ BLOCK_OPTIONS }
         placeholder={ t('wysiwyg-editor.toolbar.block-format') }
         popupMatchSelectWidth={ false }
         size="small"
-        value={ undefined }
+        value={ blockValue }
         variant="borderless"
       />
 
       <div className={ styles.toolbarDivider } />
 
-      { formatButton(<BoldIcon />, t('wysiwyg-editor.toolbar.bold'), 'bold') }
-      { formatButton(<ItalicIcon />, t('wysiwyg-editor.toolbar.italic'), 'italic') }
+      { formatButton(<BoldIcon />, t('wysiwyg-editor.toolbar.bold'), 'bold', formatState.bold) }
+      { formatButton(<ItalicIcon />, t('wysiwyg-editor.toolbar.italic'), 'italic', formatState.italic) }
 
       <div className={ styles.toolbarDivider } />
 
-      { formatButton(<UnorderedListIcon />, t('wysiwyg-editor.toolbar.unordered-list'), 'insertUnorderedList') }
-      { formatButton(<OrderedListIcon />, t('wysiwyg-editor.toolbar.ordered-list'), 'insertOrderedList') }
-      { formatButton(<BlockquoteIcon />, t('wysiwyg-editor.toolbar.blockquote'), 'formatBlock', 'blockquote') }
+      { formatButton(<UnorderedListIcon />, t('wysiwyg-editor.toolbar.unordered-list'), 'insertUnorderedList', formatState.unorderedList) }
+      { formatButton(<OrderedListIcon />, t('wysiwyg-editor.toolbar.ordered-list'), 'insertOrderedList', formatState.orderedList) }
+      { formatButton(<BlockquoteIcon />, t('wysiwyg-editor.toolbar.blockquote'), 'formatBlock', formatState.blockquote, 'blockquote') }
 
       <div className={ styles.toolbarDivider } />
 
@@ -129,14 +162,13 @@ export const EditorToolbar = ({ onCommand, onInsertLink, codeView, onToggleCodeV
             </Button>
           </Space>
         }
-        onOpenChange={ setLinkPopoverOpen }
-        open={ linkPopoverOpen && !codeView }
+        onOpenChange={ onLinkPopoverOpenChange }
+        open={ linkPopoverOpen }
         trigger="click"
       >
         <Tooltip title={ t('wysiwyg-editor.toolbar.link') }>
           <Button
             aria-label={ t('wysiwyg-editor.toolbar.link') }
-            disabled={ codeView }
             icon={ <LinkIcon /> }
             size="small"
             type="text"
@@ -147,17 +179,7 @@ export const EditorToolbar = ({ onCommand, onInsertLink, codeView, onToggleCodeV
       <div className={ styles.toolbarDivider } />
 
       { formatButton(<ClearFormatIcon />, t('wysiwyg-editor.toolbar.remove-format'), 'removeFormat') }
-
-      <Tooltip title={ t('wysiwyg-editor.toolbar.code-view') }>
-        <Button
-          aria-label={ t('wysiwyg-editor.toolbar.code-view') }
-          icon={ <CodeViewIcon /> }
-          onClick={ onToggleCodeView }
-          onMouseDown={ preventFocusSteal }
-          size="small"
-          type={ codeView ? 'primary' : 'text' }
-        />
-      </Tooltip>
+      { toolbarButton(<CodeViewIcon />, t('wysiwyg-editor.toolbar.code-view'), onOpenCodeView) }
     </div>
   )
 }
