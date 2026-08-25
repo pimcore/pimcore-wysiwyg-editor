@@ -1,0 +1,26 @@
+wysiwyg-editor.toolbar.block-format: Format
+wysiwyg-editor.toolbar.bold: Fett
+wysiwyg-editor.toolbar.italic: Kursiv
+wysiwyg-editor.toolbar.unordered-list: Aufzählungsliste
+wysiwyg-editor.toolbar.ordered-list: Nummerierte Liste
+wysiwyg-editor.toolbar.indent: Einrücken
+wysiwyg-editor.toolbar.outdent: Ausrücken
+wysiwyg-editor.toolbar.blockquote: Blockzitat
+wysiwyg-editor.toolbar.link: Link einfügen
+wysiwyg-editor.toolbar.remove-format: Formatierung entfernen
+wysiwyg-editor.toolbar.code-view: Code-Ansicht
+wysiwyg-editor.toolbar.undo: Rückgängig
+wysiwyg-editor.toolbar.redo: Wiederherstellen
+wysiwyg-editor.block.paragraph: Absatz
+wysiwyg-editor.block.heading-1: Überschrift 1
+wysiwyg-editor.block.heading-2: Überschrift 2
+wysiwyg-editor.block.heading-3: Überschrift 3
+wysiwyg-editor.block.heading-4: Überschrift 4
+wysiwyg-editor.block.heading-5: Überschrift 5
+wysiwyg-editor.block.heading-6: Überschrift 6
+wysiwyg-editor.link.url: URL
+wysiwyg-editor.link.text: Link-Text (optional)
+wysiwyg-editor.link.insert: Einfügen
+wysiwyg-editor.code-view.title: HTML-Quelltext bearbeiten
+wysiwyg-editor.code-view.apply: Übernehmen
+wysiwyg-editor.code-view.cancel: Abbrechen

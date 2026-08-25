@@ -1,8 +1,8 @@
 {
-  "name": "pimcore/x-template-name-bundle-x",
+  "name": "pimcore/pimcore-wysiwyg-editor",
   "license": "Pimcore Enterprise License (PEL)",
   "type": "pimcore-bundle",
-  "description": "Pimcore xTemplate Bundlex",
+  "description": "Pimcore WYSIWYG Editor Bundle",
   "config": {
     "discard-changes": true,
     "sort-packages": true,
@@ -17,9 +17,10 @@
   "prefer-stable": true,
   "minimum-stability": "dev",
   "require": {
-    "php": "~8.1.0 || ~8.2.0 || ~8.3.0",
-    "pimcore/enterprise-subscription-tools": "^1.3",
-    "pimcore/pimcore": "^11.0"
+    "php": "~8.4.0 || ~8.5.0",
+    "pimcore/enterprise-subscription-tools": "^2026.1",
+    "pimcore/pimcore": "^2026.1",
+    "pimcore/studio-ui-bundle": "^2026.2"
   },
   "require-dev": {
     "roave/security-advisories": "dev-latest",
@@ -36,18 +37,18 @@
   },
   "autoload": {
     "psr-4": {
-      "Pimcore\\Bundle\\xTemplateBundlex\\": "src/"
+      "Pimcore\\Bundle\\WysiwygEditor\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "Pimcore\\Bundle\\xTemplateBundlex\\Tests\\": "tests"
+      "Pimcore\\Bundle\\WysiwygEditor\\Tests\\": "tests"
     }
   },
   "extra": {
     "pimcore": {
       "bundles": [
-        "Pimcore\\Bundle\\xTemplateBundlex\\PimcorexTemplateBundlex"
+        "Pimcore\\Bundle\\WysiwygEditor\\PimcoreWysiwygEditor"
       ]
     }
   },
