@@ -21,7 +21,7 @@
     },
     "globalName": "pimcore_wysiwyg_editor_bundle",
     "pluginVersion": "2.8.2",
-    "publicPath": "/bundles/pimcorewysiwygeditor/studio/build/7824c27e-d671-4645-8405-7912a0bb7355/"
+    "publicPath": "/bundles/pimcorewysiwygeditor/studio/build/2bd70264-a502-4ad9-be3c-77ab118ac6e7/"
   },
   "shared": [
     {
@@ -75,6 +75,26 @@
           "async": [],
           "sync": [
             "static/js/async/668.288db39c.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "fallback": ""
+    },
+    {
+      "id": "pimcore_wysiwyg_editor_bundle:markdown-it",
+      "name": "markdown-it",
+      "version": "15.0.0",
+      "singleton": true,
+      "requiredVersion": "^15.0.0",
+      "assets": {
+        "js": {
+          "async": [],
+          "sync": [
+            "static/js/async/948.3d490c9b.js"
           ]
         },
         "css": {
@@ -166,7 +186,7 @@
       "assets": {
         "js": {
           "sync": [
-            "static/js/async/__federation_expose_plugins.da2f1437.js"
+            "static/js/async/__federation_expose_plugins.3e9d22fb.js"
           ],
           "async": [
             "static/js/async/892.151e2b0d.js"

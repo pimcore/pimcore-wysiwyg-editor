@@ -18,3 +18,12 @@ services:
         resource: '../src/Controller'
         public: true
         tags: [ 'controller.service_arguments' ]
+
+    #
+    # STUDIO SETTINGS
+    #
+    # hands the configured persistence format to the Studio frontend
+    Pimcore\Bundle\WysiwygEditor\Setting\WysiwygSettingsProvider:
+        arguments:
+            $persistenceFormat: '%pimcore_wysiwyg_editor.persistence_format%'
+        tags: [ 'pimcore.studio_backend.settings_provider' ]

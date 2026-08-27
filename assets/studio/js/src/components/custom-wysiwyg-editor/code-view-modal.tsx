@@ -17,12 +17,14 @@ import { useStyles } from './custom-wysiwyg-editor.styles'
 export interface CodeViewModalProps {
   open: boolean
   value: string
+  /** what the field stores, and therefore what this modal edits */
+  language: 'markdown' | 'html'
   readOnly?: boolean
   onCancel: () => void
   onApply: (value: string) => void
 }
 
-export const CodeViewModal = ({ open, value, readOnly = false, onCancel, onApply }: CodeViewModalProps): React.JSX.Element => {
+export const CodeViewModal = ({ open, value, language, readOnly = false, onCancel, onApply }: CodeViewModalProps): React.JSX.Element => {
   const { t } = useTranslation()
   const { styles } = useStyles()
   const [draft, setDraft] = useState(value)
@@ -43,14 +45,14 @@ export const CodeViewModal = ({ open, value, readOnly = false, onCancel, onApply
       onCancel={ onCancel }
       onOk={ () => { onApply(draft) } }
       open={ open }
-      title={ t('wysiwyg-editor.code-view.title') }
+      title={ t(`wysiwyg-editor.code-view.title-${language}`) }
       width={ 800 }
     >
       <div className={ styles.codeView }>
         <CodeEditor
           lineWrapping
           onChange={ setDraft }
-          preset="html"
+          preset={ language === 'html' ? 'html' : 'text' }
           readOnly={ readOnly }
           value={ draft }
         />
