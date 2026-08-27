@@ -21,7 +21,7 @@
     },
     "globalName": "pimcore_wysiwyg_editor_bundle",
     "pluginVersion": "2.8.2",
-    "publicPath": "/bundles/pimcorewysiwygeditor/studio/build/a9ec56d1-9a1f-4189-a43f-352264d65194/"
+    "publicPath": "/bundles/pimcorewysiwygeditor/studio/build/2e995d55-307e-4f5e-a896-4177629cf569/"
   },
   "shared": [
     {
@@ -145,6 +145,26 @@
         }
       },
       "fallback": ""
+    },
+    {
+      "id": "pimcore_wysiwyg_editor_bundle:turndown",
+      "name": "turndown",
+      "version": "7.2.4",
+      "singleton": true,
+      "requiredVersion": "^7.2.4",
+      "assets": {
+        "js": {
+          "async": [],
+          "sync": [
+            "static/js/async/188.fd4b1f6e.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "fallback": ""
     }
   ],
   "remotes": [
@@ -186,7 +206,7 @@
       "assets": {
         "js": {
           "sync": [
-            "static/js/async/__federation_expose_plugins.377b8497.js"
+            "static/js/async/__federation_expose_plugins.57f234ae.js"
           ],
           "async": [
             "static/js/async/892.151e2b0d.js"
