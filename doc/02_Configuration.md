@@ -33,6 +33,20 @@ converts it first.
 `markdown` suits values consumed by an API or rendered by a frontend that does its own markdown
 conversion — a headless setup, for instance.
 
+### What the backend does to a stored value
+
+A **document editable** stores exactly what the editor sends.
+
+A **data object** field does not: on save it runs the value through Pimcore's wysiwyg sanitizer and
+`Tool\Text::wysiwygText()`. Two consequences worth knowing:
+
+- Quotes are stored as `<blockquote>` rather than `> `. The sanitizer parses the value as HTML and
+  escapes a leading `>`, which would lose the quote and add a backslash on every further save.
+- The sanitizer's `img` allow list is `class, id, alt, style, src`, so a `width` on an image is
+  dropped before `wysiwygText()` can size a thumbnail from it. This affects any editor that sets a
+  width, the classic one included, and is not specific to this bundle. Allowing it needs
+  `framework.html_sanitizer` configuration in the project.
+
 The source view follows the setting: it edits markdown where the field stores markdown, and HTML
 where it stores HTML, so what you edit is what is saved.
 

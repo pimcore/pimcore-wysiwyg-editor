@@ -42,6 +42,20 @@ serializer.addRule('pimcoreReference', {
   replacement: (_content, node) => (node as HTMLElement).outerHTML
 })
 
+/**
+ * Quotes are kept as a tag rather than as `> `.
+ *
+ * A data object field runs its value through Pimcore's wysiwyg sanitizer on save, which parses it
+ * as HTML and escapes a leading `>` to `&gt;`. The quote is lost on the next load, and because
+ * turndown then escapes the stray entity, every further save adds another backslash. A
+ * `<blockquote>` passes the sanitizer untouched — it is on its allow list — and markdown permits
+ * the inline HTML.
+ */
+serializer.addRule('blockquoteAsHtml', {
+  filter: 'blockquote',
+  replacement: (_content, node) => (node as HTMLElement).outerHTML
+})
+
 export const htmlToMarkdown = (html: string): string => serializer.turndown(html).trim()
 
 export const markdownToHtml = (markdown: string): string => renderer.render(markdown).trim()
