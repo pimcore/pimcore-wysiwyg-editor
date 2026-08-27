@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Diminuer le retrait
 wysiwyg-editor.toolbar.blockquote: Citation
 wysiwyg-editor.toolbar.link: Insérer un lien
 wysiwyg-editor.toolbar.remove-format: Supprimer la mise en forme
+wysiwyg-editor.toolbar.paste-plain-text: Coller en texte brut
 wysiwyg-editor.toolbar.code-view: Vue code
 wysiwyg-editor.toolbar.undo: Annuler
 wysiwyg-editor.toolbar.redo: Rétablir

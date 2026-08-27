@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Outdent
 wysiwyg-editor.toolbar.blockquote: Blockquote
 wysiwyg-editor.toolbar.link: Insert link
 wysiwyg-editor.toolbar.remove-format: Remove formatting
+wysiwyg-editor.toolbar.paste-plain-text: Paste as plain text
 wysiwyg-editor.toolbar.code-view: Code view
 wysiwyg-editor.toolbar.undo: Undo
 wysiwyg-editor.toolbar.redo: Redo
