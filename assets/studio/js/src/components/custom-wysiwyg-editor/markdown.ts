@@ -56,6 +56,46 @@ serializer.addRule('blockquoteAsHtml', {
   replacement: (_content, node) => (node as HTMLElement).outerHTML
 })
 
+/** `[Label](pimcore:link:document:123)`, and the shorter `pimcore:document:123`. */
+const ELEMENT_URI_VALUE = /^pimcore:(?:link:)?(?:document|asset|object):\d+$/i
+const ELEMENT_URI = /(?:href|src)="pimcore:(?:link:)?(document|asset|object):(\d+)"/i
+const LINK_OR_IMAGE_TAG = /<(?:a|img)\b[^>]*>/gi
+
+// markdown-it normalises link targets through mdurl, which reorders the last two segments of
+// `pimcore:link:document:123` into `pimcore:link:123:document`. These addresses are ours to read,
+// so they are passed through untouched.
+const normalizeLink = renderer.normalizeLink.bind(renderer)
+renderer.normalizeLink = (url: string): string => ELEMENT_URI_VALUE.test(url) ? url : normalizeLink(url)
+
+/**
+ * Turns a `pimcore:` address into the attributes Pimcore reads.
+ *
+ * Writing `[Label](pimcore:link:document:123)` by hand is far easier than writing the anchor with
+ * its attributes, so both forms are accepted. Only the tag is ever *written* back, though — see
+ * `htmlToMarkdown` — so a stored value never contains the address, and Pimcore's dependency
+ * tracking, link rewriting and id rewriting, which all match on those attributes, keep working.
+ *
+ * The address itself is dropped rather than kept as the href: Pimcore fills in the element's real
+ * path when it rewrites the value, and does so whether the attribute is wrong or missing entirely.
+ */
+const resolveElementUris = (html: string): string => html.replace(LINK_OR_IMAGE_TAG, (tag) => {
+  const match = ELEMENT_URI.exec(tag)
+
+  if (match === null || /\bpimcore_id=/i.test(tag)) {
+    return tag
+  }
+
+  const selfClosing = tag.endsWith('/>')
+  const body = tag
+    .slice(0, tag.length - (selfClosing ? 2 : 1))
+    .replace(ELEMENT_URI, '')
+    .replace(/\s+/g, ' ')
+    .trimEnd()
+
+  return `${body} pimcore_id="${match[2]}" pimcore_type="${match[1]}"${selfClosing ? ' />' : '>'}`
+})
+
 export const htmlToMarkdown = (html: string): string => serializer.turndown(html).trim()
 
-export const markdownToHtml = (markdown: string): string => renderer.render(markdown).trim()
+export const markdownToHtml = (markdown: string): string =>
+  resolveElementUris(renderer.render(markdown).trim())

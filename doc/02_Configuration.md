@@ -33,6 +33,26 @@ converts it first.
 `markdown` suits values consumed by an API or rendered by a frontend that does its own markdown
 conversion — a headless setup, for instance.
 
+### Addressing an element by id
+
+A link or image can address a Pimcore element by id, which is easier to write by hand than the
+anchor with its attributes:
+
+```markdown
+[Link-Text](pimcore:link:document:12356)
+[Datasheet](pimcore:link:asset:9)
+![Alt](pimcore:asset:9)
+```
+
+`document`, `asset` and `object` are accepted, with or without the `link:` part. The address is only
+an input form: it is turned into `pimcore_id` / `pimcore_type` when read, and only the tag is ever
+written back, so a stored value never contains it. That matters, because those attributes are what
+Pimcore matches for dependency tracking, link rewriting and id rewriting — an address left as a
+plain URL would be invisible to all three.
+
+The address does not need to name a path. Pimcore fills in the element's real one whenever it
+rewrites the value, whether the existing path is wrong or missing altogether.
+
 ### What the backend does to a stored value
 
 A **document editable** stores exactly what the editor sends.

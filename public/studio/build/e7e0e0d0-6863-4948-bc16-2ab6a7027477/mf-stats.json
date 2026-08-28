@@ -21,7 +21,7 @@
     },
     "globalName": "pimcore_wysiwyg_editor_bundle",
     "pluginVersion": "2.8.2",
-    "publicPath": "/bundles/pimcorewysiwygeditor/studio/build/22f7af6a-636e-493d-b36c-e4a3a1f7c345/"
+    "publicPath": "/bundles/pimcorewysiwygeditor/studio/build/e7e0e0d0-6863-4948-bc16-2ab6a7027477/"
   },
   "shared": [
     {
@@ -279,7 +279,7 @@
       "assets": {
         "js": {
           "sync": [
-            "static/js/async/__federation_expose_plugins.2bc7623c.js"
+            "static/js/async/__federation_expose_plugins.394b830a.js"
           ],
           "async": [
             "static/js/async/892.151e2b0d.js"
