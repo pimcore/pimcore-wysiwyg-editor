@@ -10,7 +10,7 @@
 
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { isNil } from 'lodash'
-import { isNestedItem } from './list-nesting'
+import { canNestItem, isNestedItem } from './list-nesting'
 
 export interface FormatState {
   bold: boolean
@@ -194,7 +194,7 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
       orderedList: queryState(doc, 'insertOrderedList'),
       blockquote: block === 'blockquote',
       block,
-      canIndent: listItem?.previousElementSibling?.tagName === 'LI',
+      canIndent: !isNil(listItem) && canNestItem(listItem),
       canOutdent: !isNil(listItem) && isNestedItem(listItem),
       hasSelection: !range.collapsed
     })

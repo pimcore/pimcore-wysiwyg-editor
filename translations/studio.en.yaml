@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Outdent
 wysiwyg-editor.toolbar.blockquote: Blockquote
 wysiwyg-editor.toolbar.link: Insert link
 wysiwyg-editor.toolbar.remove-format: Remove formatting
+wysiwyg-editor.toolbar.paste-plain-text: Paste as plain text
 wysiwyg-editor.toolbar.code-view: Code view
 wysiwyg-editor.toolbar.undo: Undo
 wysiwyg-editor.toolbar.redo: Redo
@@ -21,6 +22,7 @@ wysiwyg-editor.block.heading-6: Heading 6
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Link text (optional)
 wysiwyg-editor.link.insert: Insert
-wysiwyg-editor.code-view.title: Edit HTML source
+wysiwyg-editor.code-view.title-markdown: Edit markdown source
+wysiwyg-editor.code-view.title-html: Edit HTML source
 wysiwyg-editor.code-view.apply: Apply
 wysiwyg-editor.code-view.cancel: Cancel

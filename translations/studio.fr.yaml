@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Diminuer le retrait
 wysiwyg-editor.toolbar.blockquote: Citation
 wysiwyg-editor.toolbar.link: Insérer un lien
 wysiwyg-editor.toolbar.remove-format: Supprimer la mise en forme
+wysiwyg-editor.toolbar.paste-plain-text: Coller en texte brut
 wysiwyg-editor.toolbar.code-view: Vue code
 wysiwyg-editor.toolbar.undo: Annuler
 wysiwyg-editor.toolbar.redo: Rétablir
@@ -21,6 +22,7 @@ wysiwyg-editor.block.heading-6: Titre 6
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Texte du lien (optionnel)
 wysiwyg-editor.link.insert: Insérer
-wysiwyg-editor.code-view.title: Modifier la source HTML
+wysiwyg-editor.code-view.title-markdown: Modifier la source markdown
+wysiwyg-editor.code-view.title-html: Modifier la source HTML
 wysiwyg-editor.code-view.apply: Appliquer
 wysiwyg-editor.code-view.cancel: Annuler

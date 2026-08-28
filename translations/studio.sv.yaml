@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Minska indrag
 wysiwyg-editor.toolbar.blockquote: Blockcitat
 wysiwyg-editor.toolbar.link: Infoga länk
 wysiwyg-editor.toolbar.remove-format: Ta bort formatering
+wysiwyg-editor.toolbar.paste-plain-text: Klistra in som oformaterad text
 wysiwyg-editor.toolbar.code-view: Kodvy
 wysiwyg-editor.toolbar.undo: Ångra
 wysiwyg-editor.toolbar.redo: Gör om
@@ -21,6 +22,7 @@ wysiwyg-editor.block.heading-6: Rubrik 6
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Länktext (valfritt)
 wysiwyg-editor.link.insert: Infoga
-wysiwyg-editor.code-view.title: Redigera HTML-källkod
+wysiwyg-editor.code-view.title-markdown: Redigera markdown-källkod
+wysiwyg-editor.code-view.title-html: Redigera HTML-källkod
 wysiwyg-editor.code-view.apply: Tillämpa
 wysiwyg-editor.code-view.cancel: Avbryt

@@ -12,6 +12,8 @@ import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } f
 import { type WysiwygEditorRef, type WysiwygProps } from '@pimcore/studio-ui-bundle/modules/wysiwyg'
 import { createImageThumbnailUrl, type DragAndDropInfo } from '@pimcore/studio-ui-bundle/components'
 import { escapeHtml, toCssDimension } from '@pimcore/studio-ui-bundle/utils'
+import { useSettings } from '@pimcore/studio-ui-bundle/modules/app'
+import { htmlToMarkdown, markdownToHtml } from './markdown'
 import { isNil } from 'lodash'
 import { useStyles } from './custom-wysiwyg-editor.styles'
 import { EditorToolbar } from './editor-toolbar'
@@ -26,12 +28,11 @@ import {
 } from './use-editor-selection'
 import {
   applyBlockToListItem,
-  indentListItem,
+  canNestItem,
   isEmptyItemWithNestedList,
   isNestedItem,
   liftNestedItems,
-  normalizeNestedLists,
-  outdentListItem
+  normalizeNestedLists
 } from './list-nesting'
 
 const LINKABLE_DOCUMENT_TYPES = ['page', 'hardlink', 'link']
@@ -44,6 +45,9 @@ const BROWSER_RENDERABLE_EXTENSIONS = ['jpg', 'jpeg', 'gif', 'png', 'webp', 'avi
 
 const getFileExtension = (path: string): string => path.split('.').pop()?.toLowerCase() ?? ''
 
+/** Setting published by the bundle's WysiwygSettingsProvider. */
+const PERSISTENCE_FORMAT_SETTING = 'wysiwyg_editor_persistence_format'
+
 export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
   ({ value, onChange, disabled, width, height, placeholder }, ref): React.JSX.Element => {
     const wrapperRef = useRef<HTMLDivElement>(null)
@@ -51,7 +55,18 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     const [hasFocus, setHasFocus] = useState(false)
     const [linkPopoverOpen, setLinkPopoverOpen] = useState(false)
     const [codeViewOpen, setCodeViewOpen] = useState(false)
+    const [pasteAsPlainText, setPasteAsPlainText] = useState(false)
     const { styles } = useStyles()
+    const settings = useSettings()
+
+    // the editor always works in HTML; markdown, when configured, is only the persisted form
+    const persistsMarkdown = (settings as Record<string, any>)[PERSISTENCE_FORMAT_SETTING] !== 'html'
+    // an image stored only as an element address needs a real URL before the editor can show it
+    const resolveAssetSrc = (assetId: number): string =>
+      createImageThumbnailUrl(assetId, { width: DROPPED_IMAGE_WIDTH, mimeType: 'JPEG' })
+    const toEditorHtml = (stored?: string | null): string =>
+      persistsMarkdown ? markdownToHtml(stored ?? '', resolveAssetSrc) : stored ?? ''
+    const toStoredValue = (html: string): string => persistsMarkdown ? htmlToMarkdown(html) : html
 
     const isEditable = disabled !== true
     // the toolbar stays out of the way until the field is actually being worked on, but must
@@ -61,6 +76,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     const { formatState, refreshFormatState, restoreSelection } = useEditorSelection(contentRef, showToolbar)
 
     const valueIsEmpty = isNil(value) || value.trim() === '' || value === '<p></p>' || value === '<br>'
+    const editorHtml = toEditorHtml(value)
 
     useImperativeHandle(ref, (): WysiwygEditorRef => ({
       onDrop: (info: DragAndDropInfo): void => {
@@ -83,19 +99,53 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         return
       }
 
-      if (content.innerHTML !== (value ?? '')) {
-        content.innerHTML = value ?? ''
+      if (content.innerHTML !== editorHtml) {
+        content.innerHTML = editorHtml
       }
-    }, [value])
+    }, [editorHtml])
 
     const emitChange = (): void => {
-      if (!isNil(contentRef.current)) {
-        onChange?.(contentRef.current.innerHTML)
+      const content = contentRef.current
+
+      if (isNil(content)) {
+        return
       }
+
+      // The browser's own list markup is not always valid — `execCommand('indent')` puts the nested
+      // list beside its item rather than inside it. Repairing the live DOM would desynchronise the
+      // undo history, which knows only the browser's version, so a copy is repaired instead and the
+      // stored value is the sound one.
+      const draft = content.cloneNode(true) as HTMLElement
+      normalizeNestedLists(draft)
+      onChange?.(toStoredValue(draft.innerHTML))
     }
 
     const handleInput = (): void => {
       emitChange()
+    }
+
+    /**
+     * While the toggle is on, a paste contributes text and nothing else — no styles, classes or
+     * markup from wherever it came from. The clipboard's plain-text flavour is used rather than the
+     * text of its HTML flavour, which would also pick up the contents of any script tag in it.
+     */
+    const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>): void => {
+      if (!pasteAsPlainText || !isEditable) {
+        return
+      }
+
+      event.preventDefault()
+
+      const text = event.clipboardData.getData('text/plain')
+
+      if (text === '') {
+        return
+      }
+
+      // insertText keeps the paste in the undo history and splits lines into blocks
+      contentRef.current?.ownerDocument.execCommand('insertText', false, text)
+      emitChange()
+      refreshFormatState()
     }
 
     const handleFocus = (): void => {
@@ -265,14 +315,24 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * only a list, rendering as a stack of empty markers.
      */
     const canApplyIndent = (listItem: HTMLElement, command: 'indent' | 'outdent'): boolean =>
-      command === 'outdent' || listItem.previousElementSibling?.tagName === 'LI'
+      command === 'outdent' ? isNestedItem(listItem) : canNestItem(listItem)
 
     /**
      * Indenting is offered inside lists only. Outside one `execCommand('indent')` wraps the block
      * in a margin-styled blockquote, which is not something this editor should produce.
      */
+    /**
+     * Indenting is left to the browser rather than done by hand.
+     *
+     * Applying it through `insertHTML`, as the other structural edits are, corrupts a list that the
+     * browser has put inside a paragraph: the replacement leaves an item orphaned outside any list,
+     * which renders as a bare bullet. The native command copes with that structure, and is undoable
+     * for free. It produces invalid nesting of its own, which `emitChange` repairs on the way out.
+     */
     const handleIndent = (command: 'indent' | 'outdent'): void => {
-      if (!isEditable) {
+      const content = contentRef.current
+
+      if (!isEditable || isNil(content)) {
         return
       }
 
@@ -284,31 +344,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         return
       }
 
-      const list = listItem.parentElement
-
-      if (isNil(list)) {
-        return
-      }
-
-      // the whole list is rewritten in one step, so indenting is a single undoable action
-      const itemIndex = Array.from(list.children).indexOf(listItem)
-
-      mutateWithHistory(list, (draft) => {
-        const draftItem = draft.children[itemIndex]
-
-        if (!(draftItem instanceof HTMLElement)) {
-          return
-        }
-
-        if (command === 'indent') {
-          indentListItem(draftItem)
-        } else {
-          outdentListItem(draftItem)
-        }
-
-        normalizeNestedLists(draft)
-      })
-
+      content.ownerDocument.execCommand(command)
       emitChange()
       refreshFormatState()
     }
@@ -481,14 +517,19 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       )
     }
 
-    const handleApplyCodeView = (newValue: string): void => {
+    /**
+     * The modal edits the field in the form it is stored in: markdown where that is configured,
+     * HTML otherwise. Editing HTML while the field persists markdown would show the user a form
+     * their edits are immediately converted out of.
+     */
+    const handleApplyCodeView = (edited: string): void => {
       // write through to the DOM rather than relying on the sync effect, which skips while the
       // content is focused — where focus lands after the modal closes is not ours to predict
       if (!isNil(contentRef.current)) {
-        contentRef.current.innerHTML = newValue
+        contentRef.current.innerHTML = persistsMarkdown ? markdownToHtml(edited, resolveAssetSrc) : edited
       }
 
-      onChange?.(newValue)
+      onChange?.(persistsMarkdown ? edited : toStoredValue(edited))
       setCodeViewOpen(false)
     }
 
@@ -509,6 +550,8 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
             onLinkPopoverOpenChange={ setLinkPopoverOpen }
             onIndent={ handleIndent }
             onOpenCodeView={ () => { setCodeViewOpen(true) } }
+            onTogglePasteAsPlainText={ () => { setPasteAsPlainText((current) => !current) } }
+            pasteAsPlainText={ pasteAsPlainText }
             onToggleMark={ handleToggleMark }
           />
         ) }
@@ -520,17 +563,19 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
           data-placeholder={ placeholder }
           onInput={ handleInput }
           onKeyDown={ handleKeyDown }
+          onPaste={ handlePaste }
           ref={ contentRef }
           style={ { minHeight: toCssDimension(height) } }
           suppressContentEditableWarning
         />
 
         <CodeViewModal
+          language={ persistsMarkdown ? 'markdown' : 'html' }
           onApply={ handleApplyCodeView }
           onCancel={ () => { setCodeViewOpen(false) } }
           open={ codeViewOpen }
           readOnly={ !isEditable }
-          value={ value ?? '' }
+          value={ persistsMarkdown ? value ?? '' : editorHtml }
         />
       </div>
     )

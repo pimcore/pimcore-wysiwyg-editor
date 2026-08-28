@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Ausrücken
 wysiwyg-editor.toolbar.blockquote: Blockzitat
 wysiwyg-editor.toolbar.link: Link einfügen
 wysiwyg-editor.toolbar.remove-format: Formatierung entfernen
+wysiwyg-editor.toolbar.paste-plain-text: Als unformatierten Text einfügen
 wysiwyg-editor.toolbar.code-view: Code-Ansicht
 wysiwyg-editor.toolbar.undo: Rückgängig
 wysiwyg-editor.toolbar.redo: Wiederherstellen
@@ -21,6 +22,7 @@ wysiwyg-editor.block.heading-6: Überschrift 6
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Link-Text (optional)
 wysiwyg-editor.link.insert: Einfügen
-wysiwyg-editor.code-view.title: HTML-Quelltext bearbeiten
+wysiwyg-editor.code-view.title-markdown: Markdown-Quelltext bearbeiten
+wysiwyg-editor.code-view.title-html: HTML-Quelltext bearbeiten
 wysiwyg-editor.code-view.apply: Übernehmen
 wysiwyg-editor.code-view.cancel: Abbrechen

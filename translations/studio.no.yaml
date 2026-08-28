@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Reduser innrykk
 wysiwyg-editor.toolbar.blockquote: Blokksitat
 wysiwyg-editor.toolbar.link: Sett inn lenke
 wysiwyg-editor.toolbar.remove-format: Fjern formatering
+wysiwyg-editor.toolbar.paste-plain-text: Lim inn som ren tekst
 wysiwyg-editor.toolbar.code-view: Kodevisning
 wysiwyg-editor.toolbar.undo: Angre
 wysiwyg-editor.toolbar.redo: Gjør om
@@ -21,6 +22,7 @@ wysiwyg-editor.block.heading-6: Overskrift 6
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Lenketekst (valgfritt)
 wysiwyg-editor.link.insert: Sett inn
-wysiwyg-editor.code-view.title: Rediger HTML-kilde
+wysiwyg-editor.code-view.title-markdown: Rediger markdown-kilde
+wysiwyg-editor.code-view.title-html: Rediger HTML-kilde
 wysiwyg-editor.code-view.apply: Bruk
 wysiwyg-editor.code-view.cancel: Avbryt

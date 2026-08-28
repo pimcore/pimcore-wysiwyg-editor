@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Reducir sangría
 wysiwyg-editor.toolbar.blockquote: Cita
 wysiwyg-editor.toolbar.link: Insertar enlace
 wysiwyg-editor.toolbar.remove-format: Quitar formato
+wysiwyg-editor.toolbar.paste-plain-text: Pegar como texto sin formato
 wysiwyg-editor.toolbar.code-view: Vista de código
 wysiwyg-editor.toolbar.undo: Deshacer
 wysiwyg-editor.toolbar.redo: Rehacer
@@ -21,6 +22,7 @@ wysiwyg-editor.block.heading-6: Encabezado 6
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Texto del enlace (opcional)
 wysiwyg-editor.link.insert: Insertar
-wysiwyg-editor.code-view.title: Editar código fuente HTML
+wysiwyg-editor.code-view.title-markdown: Editar código fuente markdown
+wysiwyg-editor.code-view.title-html: Editar código fuente HTML
 wysiwyg-editor.code-view.apply: Aplicar
 wysiwyg-editor.code-view.cancel: Cancelar

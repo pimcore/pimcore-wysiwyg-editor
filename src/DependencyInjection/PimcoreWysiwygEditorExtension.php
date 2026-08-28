@@ -26,6 +26,13 @@ class PimcoreWysiwygEditorExtension extends Extension implements PrependExtensio
 {
     public function load(array $configs, ContainerBuilder $container): void
     {
+        $config = $this->processConfiguration(new Configuration(), $configs);
+
+        $container->setParameter(
+            'pimcore_wysiwyg_editor.persistence_format',
+            $config['persistence_format']
+        );
+
         $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../../config'));
         $loader->load('services.yaml');
     }
