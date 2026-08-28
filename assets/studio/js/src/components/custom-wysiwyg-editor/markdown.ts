@@ -37,9 +37,33 @@ const serializer = new TurndownService({
  * the reference Pimcore matches to rewrite it to a public URL on output. Keeping the original tag
  * preserves it, and inline HTML is valid markdown.
  */
+/**
+ * An element reference is written as a `pimcore:` address, so a value stored as markdown is
+ * markdown throughout rather than markdown with anchors embedded in it. Reading accepts the address
+ * and the tag alike, so a value written either way still loads.
+ *
+ * The trade-off is deliberate and applies to markdown storage only, which `htmlToMarkdown` is the
+ * sole entry point for. Pimcore finds element references by matching `pimcore_id` / `pimcore_type`
+ * on a tag, so with an address in their place it no longer records the link as a dependency,
+ * rewrites it to a public URL, or remaps it when ids change. See doc/02_Configuration.md.
+ */
 serializer.addRule('pimcoreReference', {
   filter: (node) => node.hasAttribute('pimcore_id') || node.hasAttribute('pimcore_type'),
-  replacement: (_content, node) => (node as HTMLElement).outerHTML
+  replacement: (content, node) => {
+    const element = node as HTMLElement
+    const id = element.getAttribute('pimcore_id') ?? ''
+    const type = element.getAttribute('pimcore_type') ?? ''
+
+    if (id === '' || type === '') {
+      return element.outerHTML
+    }
+
+    const address = `pimcore:link:${type}:${id}`
+
+    return element.tagName === 'IMG'
+      ? `![${element.getAttribute('alt') ?? ''}](${address})`
+      : `[${content}](${address})`
+  }
 })
 
 /**
