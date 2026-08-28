@@ -28,12 +28,10 @@ import {
 } from './use-editor-selection'
 import {
   applyBlockToListItem,
-  indentListItem,
   isEmptyItemWithNestedList,
   isNestedItem,
   liftNestedItems,
-  normalizeNestedLists,
-  outdentListItem
+  normalizeNestedLists
 } from './list-nesting'
 
 const LINKABLE_DOCUMENT_TYPES = ['page', 'hardlink', 'link']
@@ -106,9 +104,19 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     }, [editorHtml])
 
     const emitChange = (): void => {
-      if (!isNil(contentRef.current)) {
-        onChange?.(toStoredValue(contentRef.current.innerHTML))
+      const content = contentRef.current
+
+      if (isNil(content)) {
+        return
       }
+
+      // The browser's own list markup is not always valid — `execCommand('indent')` puts the nested
+      // list beside its item rather than inside it. Repairing the live DOM would desynchronise the
+      // undo history, which knows only the browser's version, so a copy is repaired instead and the
+      // stored value is the sound one.
+      const draft = content.cloneNode(true) as HTMLElement
+      normalizeNestedLists(draft)
+      onChange?.(toStoredValue(draft.innerHTML))
     }
 
     const handleInput = (): void => {
@@ -312,8 +320,18 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * Indenting is offered inside lists only. Outside one `execCommand('indent')` wraps the block
      * in a margin-styled blockquote, which is not something this editor should produce.
      */
+    /**
+     * Indenting is left to the browser rather than done by hand.
+     *
+     * Applying it through `insertHTML`, as the other structural edits are, corrupts a list that the
+     * browser has put inside a paragraph: the replacement leaves an item orphaned outside any list,
+     * which renders as a bare bullet. The native command copes with that structure, and is undoable
+     * for free. It produces invalid nesting of its own, which `emitChange` repairs on the way out.
+     */
     const handleIndent = (command: 'indent' | 'outdent'): void => {
-      if (!isEditable) {
+      const content = contentRef.current
+
+      if (!isEditable || isNil(content)) {
         return
       }
 
@@ -325,31 +343,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         return
       }
 
-      const list = listItem.parentElement
-
-      if (isNil(list)) {
-        return
-      }
-
-      // the whole list is rewritten in one step, so indenting is a single undoable action
-      const itemIndex = Array.from(list.children).indexOf(listItem)
-
-      mutateWithHistory(list, (draft) => {
-        const draftItem = draft.children[itemIndex]
-
-        if (!(draftItem instanceof HTMLElement)) {
-          return
-        }
-
-        if (command === 'indent') {
-          indentListItem(draftItem)
-        } else {
-          outdentListItem(draftItem)
-        }
-
-        normalizeNestedLists(draft)
-      })
-
+      content.ownerDocument.execCommand(command)
       emitChange()
       refreshFormatState()
     }

@@ -21,15 +21,18 @@
     },
     "globalName": "pimcore_wysiwyg_editor_bundle",
     "pluginVersion": "2.8.2",
-    "publicPath": "/bundles/pimcorewysiwygeditor/studio/build/0e4d3970-0e1b-48db-9cfa-1f06c4f91c5e/"
+    "publicPath": "/bundles/pimcorewysiwygeditor/studio/build/7766919a-b32c-4ff7-a418-0873a92dbc08/"
   },
   "shared": [
     {
-      "id": "pimcore_wysiwyg_editor_bundle:antd-style",
-      "name": "antd-style",
-      "version": "3.7.1",
       "singleton": true,
       "requiredVersion": "^3.7.1",
+      "shareScope": "default",
+      "import": "antd-style",
+      "name": "antd-style",
+      "version": "3.7.1",
+      "eager": false,
+      "id": "pimcore_wysiwyg_editor_bundle:antd-style",
       "assets": {
         "js": {
           "async": [],
@@ -42,14 +45,20 @@
           "sync": []
         }
       },
+      "usedIn": [
+        "./plugins"
+      ],
+      "usedExports": [],
       "fallback": ""
     },
     {
-      "id": "pimcore_wysiwyg_editor_bundle:antd",
-      "name": "antd",
-      "version": "5.22.7",
       "singleton": true,
       "requiredVersion": "^5.22.7",
+      "shareScope": "default",
+      "name": "antd",
+      "version": "5.22.7",
+      "eager": false,
+      "id": "pimcore_wysiwyg_editor_bundle:antd",
       "assets": {
         "js": {
           "async": [],
@@ -62,14 +71,20 @@
           "sync": []
         }
       },
+      "usedIn": [
+        "./plugins"
+      ],
+      "usedExports": [],
       "fallback": ""
     },
     {
-      "id": "pimcore_wysiwyg_editor_bundle:lodash",
-      "name": "lodash",
-      "version": "4.18.1",
       "singleton": true,
       "requiredVersion": "^4.18.1",
+      "shareScope": "default",
+      "name": "lodash",
+      "version": "4.18.1",
+      "eager": false,
+      "id": "pimcore_wysiwyg_editor_bundle:lodash",
       "assets": {
         "js": {
           "async": [],
@@ -82,14 +97,21 @@
           "sync": []
         }
       },
+      "usedIn": [
+        "./plugins"
+      ],
+      "usedExports": [],
       "fallback": ""
     },
     {
-      "id": "pimcore_wysiwyg_editor_bundle:markdown-it",
-      "name": "markdown-it",
-      "version": "15.0.0",
       "singleton": true,
       "requiredVersion": "^15.0.0",
+      "shareScope": "default",
+      "import": "markdown-it",
+      "name": "markdown-it",
+      "version": "15.0.0",
+      "eager": false,
+      "id": "pimcore_wysiwyg_editor_bundle:markdown-it",
       "assets": {
         "js": {
           "async": [],
@@ -102,14 +124,20 @@
           "sync": []
         }
       },
+      "usedIn": [
+        "./plugins"
+      ],
+      "usedExports": [],
       "fallback": ""
     },
     {
-      "id": "pimcore_wysiwyg_editor_bundle:react-dom",
+      "singleton": true,
+      "requiredVersion": "^18.3.1",
+      "shareScope": "default",
+      "eager": true,
       "name": "react-dom",
       "version": "18.3.1",
-      "singleton": true,
-      "requiredVersion": "^18.3.1",
+      "id": "pimcore_wysiwyg_editor_bundle:react-dom",
       "assets": {
         "js": {
           "async": [],
@@ -123,14 +151,18 @@
           "sync": []
         }
       },
+      "usedIn": [],
+      "usedExports": [],
       "fallback": ""
     },
     {
-      "id": "pimcore_wysiwyg_editor_bundle:react",
+      "singleton": true,
+      "requiredVersion": "^18.3.1",
+      "shareScope": "default",
+      "eager": true,
       "name": "react",
       "version": "18.3.1",
-      "singleton": true,
-      "requiredVersion": "^18.3.1",
+      "id": "pimcore_wysiwyg_editor_bundle:react",
       "assets": {
         "js": {
           "async": [],
@@ -144,14 +176,21 @@
           "sync": []
         }
       },
+      "usedIn": [
+        "./plugins"
+      ],
+      "usedExports": [],
       "fallback": ""
     },
     {
-      "id": "pimcore_wysiwyg_editor_bundle:turndown",
-      "name": "turndown",
-      "version": "7.2.4",
       "singleton": true,
       "requiredVersion": "^7.2.4",
+      "shareScope": "default",
+      "import": "turndown",
+      "name": "turndown",
+      "version": "7.2.4",
+      "eager": false,
+      "id": "pimcore_wysiwyg_editor_bundle:turndown",
       "assets": {
         "js": {
           "async": [],
@@ -164,49 +203,83 @@
           "sync": []
         }
       },
+      "usedIn": [
+        "./plugins"
+      ],
+      "usedExports": [],
       "fallback": ""
     }
   ],
   "remotes": [
     {
+      "alias": "@pimcore/studio-ui-bundle",
+      "consumingFederationContainerName": "pimcore_wysiwyg_editor_bundle",
       "federationContainerName": "promise new Promise((resolve) => {\n    const emptyContainer = {\n      get: () => Promise.resolve(() => ({})),\n      init: () => {}\n    }\n\n    const remoteUrl = window.StudioUIBundleRemoteUrl\n\n    if (!remoteUrl) {\n      throw new Error('Required remote \"pimcore_studio_ui_bundle\" is not available');\n      return\n    }\n\n    // Check if the container is already available\n    if (window['pimcore_studio_ui_bundle']) {\n      resolve({\n        get: (request) => window['pimcore_studio_ui_bundle'].get(request),\n        init: (...arg) => {\n          try {\n            return window['pimcore_studio_ui_bundle'].init(...arg)\n          } catch(e) {\n            console.log('remote container already initialized')\n          }\n        }\n      })\n      return\n    }\n\n    const script = document.createElement('script')\n    script.src = remoteUrl\n    script.onload = () => {\n      const proxy = {\n        get: (request) => window['pimcore_studio_ui_bundle'].get(request),\n        init: (...arg) => {\n          try {\n            return window['pimcore_studio_ui_bundle'].init(...arg)\n          } catch(e) {\n            console.log('remote container already initialized')\n          }\n        }\n      }\n      resolve(proxy)\n    }\n    script.onerror = () => {\n      throw new Error('Failed to load required remote \"pimcore_studio_ui_bundle\" from ' + remoteUrl);\n    }\n    document.head.appendChild(script);\n  })\n  ",
       "moduleName": ".",
-      "alias": "@pimcore/studio-ui-bundle",
-      "entry": "*"
+      "usedIn": [
+        "js/src/plugins.ts + 9 modules"
+      ],
+      "version": "*"
     },
     {
+      "alias": "@pimcore/studio-ui-bundle",
+      "consumingFederationContainerName": "pimcore_wysiwyg_editor_bundle",
       "federationContainerName": "promise new Promise((resolve) => {\n    const emptyContainer = {\n      get: () => Promise.resolve(() => ({})),\n      init: () => {}\n    }\n\n    const remoteUrl = window.StudioUIBundleRemoteUrl\n\n    if (!remoteUrl) {\n      throw new Error('Required remote \"pimcore_studio_ui_bundle\" is not available');\n      return\n    }\n\n    // Check if the container is already available\n    if (window['pimcore_studio_ui_bundle']) {\n      resolve({\n        get: (request) => window['pimcore_studio_ui_bundle'].get(request),\n        init: (...arg) => {\n          try {\n            return window['pimcore_studio_ui_bundle'].init(...arg)\n          } catch(e) {\n            console.log('remote container already initialized')\n          }\n        }\n      })\n      return\n    }\n\n    const script = document.createElement('script')\n    script.src = remoteUrl\n    script.onload = () => {\n      const proxy = {\n        get: (request) => window['pimcore_studio_ui_bundle'].get(request),\n        init: (...arg) => {\n          try {\n            return window['pimcore_studio_ui_bundle'].init(...arg)\n          } catch(e) {\n            console.log('remote container already initialized')\n          }\n        }\n      }\n      resolve(proxy)\n    }\n    script.onerror = () => {\n      throw new Error('Failed to load required remote \"pimcore_studio_ui_bundle\" from ' + remoteUrl);\n    }\n    document.head.appendChild(script);\n  })\n  ",
       "moduleName": "app",
-      "alias": "@pimcore/studio-ui-bundle",
-      "entry": "*"
+      "usedIn": [
+        "js/src/plugins.ts + 9 modules"
+      ],
+      "version": "*"
     },
     {
+      "alias": "@pimcore/studio-ui-bundle",
+      "consumingFederationContainerName": "pimcore_wysiwyg_editor_bundle",
       "federationContainerName": "promise new Promise((resolve) => {\n    const emptyContainer = {\n      get: () => Promise.resolve(() => ({})),\n      init: () => {}\n    }\n\n    const remoteUrl = window.StudioUIBundleRemoteUrl\n\n    if (!remoteUrl) {\n      throw new Error('Required remote \"pimcore_studio_ui_bundle\" is not available');\n      return\n    }\n\n    // Check if the container is already available\n    if (window['pimcore_studio_ui_bundle']) {\n      resolve({\n        get: (request) => window['pimcore_studio_ui_bundle'].get(request),\n        init: (...arg) => {\n          try {\n            return window['pimcore_studio_ui_bundle'].init(...arg)\n          } catch(e) {\n            console.log('remote container already initialized')\n          }\n        }\n      })\n      return\n    }\n\n    const script = document.createElement('script')\n    script.src = remoteUrl\n    script.onload = () => {\n      const proxy = {\n        get: (request) => window['pimcore_studio_ui_bundle'].get(request),\n        init: (...arg) => {\n          try {\n            return window['pimcore_studio_ui_bundle'].init(...arg)\n          } catch(e) {\n            console.log('remote container already initialized')\n          }\n        }\n      }\n      resolve(proxy)\n    }\n    script.onerror = () => {\n      throw new Error('Failed to load required remote \"pimcore_studio_ui_bundle\" from ' + remoteUrl);\n    }\n    document.head.appendChild(script);\n  })\n  ",
       "moduleName": "modules/app",
-      "alias": "@pimcore/studio-ui-bundle",
-      "entry": "*"
+      "usedIn": [
+        "js/src/plugins.ts + 9 modules"
+      ],
+      "version": "*"
     },
     {
+      "alias": "@pimcore/studio-ui-bundle",
+      "consumingFederationContainerName": "pimcore_wysiwyg_editor_bundle",
       "federationContainerName": "promise new Promise((resolve) => {\n    const emptyContainer = {\n      get: () => Promise.resolve(() => ({})),\n      init: () => {}\n    }\n\n    const remoteUrl = window.StudioUIBundleRemoteUrl\n\n    if (!remoteUrl) {\n      throw new Error('Required remote \"pimcore_studio_ui_bundle\" is not available');\n      return\n    }\n\n    // Check if the container is already available\n    if (window['pimcore_studio_ui_bundle']) {\n      resolve({\n        get: (request) => window['pimcore_studio_ui_bundle'].get(request),\n        init: (...arg) => {\n          try {\n            return window['pimcore_studio_ui_bundle'].init(...arg)\n          } catch(e) {\n            console.log('remote container already initialized')\n          }\n        }\n      })\n      return\n    }\n\n    const script = document.createElement('script')\n    script.src = remoteUrl\n    script.onload = () => {\n      const proxy = {\n        get: (request) => window['pimcore_studio_ui_bundle'].get(request),\n        init: (...arg) => {\n          try {\n            return window['pimcore_studio_ui_bundle'].init(...arg)\n          } catch(e) {\n            console.log('remote container already initialized')\n          }\n        }\n      }\n      resolve(proxy)\n    }\n    script.onerror = () => {\n      throw new Error('Failed to load required remote \"pimcore_studio_ui_bundle\" from ' + remoteUrl);\n    }\n    document.head.appendChild(script);\n  })\n  ",
       "moduleName": "components",
-      "alias": "@pimcore/studio-ui-bundle",
-      "entry": "*"
+      "usedIn": [
+        "js/src/plugins.ts + 9 modules"
+      ],
+      "version": "*"
     },
     {
+      "alias": "@pimcore/studio-ui-bundle",
+      "consumingFederationContainerName": "pimcore_wysiwyg_editor_bundle",
       "federationContainerName": "promise new Promise((resolve) => {\n    const emptyContainer = {\n      get: () => Promise.resolve(() => ({})),\n      init: () => {}\n    }\n\n    const remoteUrl = window.StudioUIBundleRemoteUrl\n\n    if (!remoteUrl) {\n      throw new Error('Required remote \"pimcore_studio_ui_bundle\" is not available');\n      return\n    }\n\n    // Check if the container is already available\n    if (window['pimcore_studio_ui_bundle']) {\n      resolve({\n        get: (request) => window['pimcore_studio_ui_bundle'].get(request),\n        init: (...arg) => {\n          try {\n            return window['pimcore_studio_ui_bundle'].init(...arg)\n          } catch(e) {\n            console.log('remote container already initialized')\n          }\n        }\n      })\n      return\n    }\n\n    const script = document.createElement('script')\n    script.src = remoteUrl\n    script.onload = () => {\n      const proxy = {\n        get: (request) => window['pimcore_studio_ui_bundle'].get(request),\n        init: (...arg) => {\n          try {\n            return window['pimcore_studio_ui_bundle'].init(...arg)\n          } catch(e) {\n            console.log('remote container already initialized')\n          }\n        }\n      }\n      resolve(proxy)\n    }\n    script.onerror = () => {\n      throw new Error('Failed to load required remote \"pimcore_studio_ui_bundle\" from ' + remoteUrl);\n    }\n    document.head.appendChild(script);\n  })\n  ",
       "moduleName": "utils",
-      "alias": "@pimcore/studio-ui-bundle",
-      "entry": "*"
+      "usedIn": [
+        "js/src/plugins.ts + 9 modules"
+      ],
+      "version": "*"
     }
   ],
   "exposes": [
     {
+      "path": "./plugins",
       "id": "pimcore_wysiwyg_editor_bundle:plugins",
       "name": "plugins",
+      "requires": [
+        "react",
+        "antd",
+        "lodash",
+        "markdown-it",
+        "turndown",
+        "antd-style"
+      ],
+      "file": "js/src/plugins.ts",
       "assets": {
         "js": {
           "sync": [
-            "static/js/async/__federation_expose_plugins.26e31d05.js"
+            "static/js/async/__federation_expose_plugins.fcab2c77.js"
           ],
           "async": [
             "static/js/async/892.151e2b0d.js"
@@ -216,8 +289,7 @@
           "sync": [],
           "async": []
         }
-      },
-      "path": "./plugins"
+      }
     }
   ]
 }

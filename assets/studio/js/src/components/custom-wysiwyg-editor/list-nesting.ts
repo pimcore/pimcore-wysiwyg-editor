@@ -13,6 +13,7 @@ import { isNil } from 'lodash'
 const LIST_IN_LIST = 'ol > ol, ol > ul, ul > ol, ul > ul'
 const NESTED_LIST = 'li > ol, li > ul'
 const ITEM_IN_ITEM = 'li > li'
+const LIST_IN_PARAGRAPH = 'p > ol, p > ul'
 
 const isList = (node: Node): boolean => node.nodeName === 'OL' || node.nodeName === 'UL'
 
@@ -30,48 +31,6 @@ export const isEmptyItemWithNestedList = (listItem: HTMLElement): boolean =>
 /** True when the item sits in a sub-list, i.e. there is a level for it to move out to. */
 export const isNestedItem = (listItem: HTMLElement): boolean =>
   listItem.parentElement?.parentElement?.tagName === 'LI'
-
-/**
- * Nests an item under the one above it. Done by hand rather than with `execCommand('indent')`,
- * which produces markup a list may not contain and needs repairing afterwards — a repair the
- * browser's undo history knows nothing about.
- */
-export const indentListItem = (listItem: HTMLElement): void => {
-  const previous = listItem.previousElementSibling
-  const parentList = listItem.parentElement
-
-  if (previous?.tagName !== 'LI' || isNil(parentList)) {
-    return
-  }
-
-  const lastChild = previous.lastElementChild
-  let targetList: Element
-
-  if (!isNil(lastChild) && isList(lastChild)) {
-    targetList = lastChild
-  } else {
-    targetList = listItem.ownerDocument.createElement(parentList.tagName)
-    previous.appendChild(targetList)
-  }
-
-  targetList.appendChild(listItem)
-}
-
-/** Moves a nested item out one level, to sit after the item it was nested under. */
-export const outdentListItem = (listItem: HTMLElement): void => {
-  const parentList = listItem.parentElement
-  const parentItem = parentList?.parentElement
-
-  if (isNil(parentList) || parentItem?.tagName !== 'LI') {
-    return
-  }
-
-  parentItem.parentElement?.insertBefore(listItem, parentItem.nextSibling)
-
-  if (parentList.children.length === 0) {
-    parentList.remove()
-  }
-}
 
 /**
  * Removes an item, lifting its sub-list into the position it occupied. Backspace cannot do this on
@@ -150,6 +109,24 @@ export const applyBlockToListItem = (listItem: HTMLElement, tag: string): void =
  * - outdent drops the item inside its parent item (`<li>a<li>b</li></li>`)
  */
 export const normalizeNestedLists = (root: HTMLElement): void => {
+  // A paragraph may not contain a list, yet the browser produces exactly that when a list is made
+  // from several paragraphs at once. Every replacement performed through insertHTML is mangled
+  // inside such a paragraph — a list item is left orphaned outside any list, and renders as a bare
+  // bullet — so the list is lifted out of it.
+  root.querySelectorAll<HTMLElement>(LIST_IN_PARAGRAPH).forEach((list) => {
+    const paragraph = list.parentElement
+
+    if (isNil(paragraph)) {
+      return
+    }
+
+    paragraph.parentNode?.insertBefore(list, paragraph)
+
+    if (paragraph.textContent?.trim() === '') {
+      paragraph.remove()
+    }
+  })
+
   // a list beside its item belongs inside it
   root.querySelectorAll<HTMLElement>(LIST_IN_LIST).forEach((nestedList) => {
     const previous = nestedList.previousElementSibling
