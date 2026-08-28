@@ -28,6 +28,7 @@ import {
 } from './use-editor-selection'
 import {
   applyBlockToListItem,
+  canNestItem,
   isEmptyItemWithNestedList,
   isNestedItem,
   liftNestedItems,
@@ -314,7 +315,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * only a list, rendering as a stack of empty markers.
      */
     const canApplyIndent = (listItem: HTMLElement, command: 'indent' | 'outdent'): boolean =>
-      command === 'outdent' || listItem.previousElementSibling?.tagName === 'LI'
+      command === 'outdent' ? isNestedItem(listItem) : canNestItem(listItem)
 
     /**
      * Indenting is offered inside lists only. Outside one `execCommand('indent')` wraps the block

@@ -28,9 +28,26 @@ export const isEmptyItemWithNestedList = (listItem: HTMLElement): boolean =>
   Array.from(listItem.children).some(isList) &&
   ownChildNodes(listItem).map((node) => node.textContent ?? '').join('').trim() === ''
 
-/** True when the item sits in a sub-list, i.e. there is a level for it to move out to. */
-export const isNestedItem = (listItem: HTMLElement): boolean =>
-  listItem.parentElement?.parentElement?.tagName === 'LI'
+/**
+ * True when the item sits in a sub-list, i.e. there is a level for it to move out to.
+ *
+ * Both shapes count. A repaired list nests the sub-list inside its item (`li > ol > li`), while a
+ * list the browser has just indented puts it beside that item (`ol > ol > li`) — and the live DOM
+ * is left in the browser's shape on purpose, so that its undo history stays intact.
+ */
+export const isNestedItem = (listItem: HTMLElement): boolean => {
+  const grandparent = listItem.parentElement?.parentElement
+
+  return !isNil(grandparent) && (grandparent.tagName === 'LI' || isList(grandparent))
+}
+
+/**
+ * True when something precedes the item at its own level, which is what it would nest under.
+ *
+ * The preceding element is not necessarily an item: in the browser's shape a sub-list sits between
+ * two items, and the item after it can still be indented — into that very sub-list.
+ */
+export const canNestItem = (listItem: HTMLElement): boolean => listItem.previousElementSibling !== null
 
 /**
  * Removes an item, lifting its sub-list into the position it occupied. Backspace cannot do this on

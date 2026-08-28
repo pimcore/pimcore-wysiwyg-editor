@@ -7,7 +7,7 @@
         window.alternativePluginExportPaths = {}
       }
 
-      window.pluginRemotes.pimcore_wysiwyg_editor_bundle = "/bundles/pimcorewysiwygeditor/studio/build/7766919a-b32c-4ff7-a418-0873a92dbc08/static/js/remoteEntry.js"
+      window.pluginRemotes.pimcore_wysiwyg_editor_bundle = "/bundles/pimcorewysiwygeditor/studio/build/74457224-0add-4643-81fb-664e8ffa6361/static/js/remoteEntry.js"
 
       window.alternativePluginExportPaths.pimcore_wysiwyg_editor_bundle = "/plugins"
     
