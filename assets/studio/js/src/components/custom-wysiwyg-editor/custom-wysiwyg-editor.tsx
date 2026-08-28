@@ -62,8 +62,11 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
 
     // the editor always works in HTML; markdown, when configured, is only the persisted form
     const persistsMarkdown = (settings as Record<string, any>)[PERSISTENCE_FORMAT_SETTING] !== 'html'
+    // an image stored only as an element address needs a real URL before the editor can show it
+    const resolveAssetSrc = (assetId: number): string =>
+      createImageThumbnailUrl(assetId, { width: DROPPED_IMAGE_WIDTH, mimeType: 'JPEG' })
     const toEditorHtml = (stored?: string | null): string =>
-      persistsMarkdown ? markdownToHtml(stored ?? '') : stored ?? ''
+      persistsMarkdown ? markdownToHtml(stored ?? '', resolveAssetSrc) : stored ?? ''
     const toStoredValue = (html: string): string => persistsMarkdown ? htmlToMarkdown(html) : html
 
     const isEditable = disabled !== true
@@ -528,7 +531,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       // write through to the DOM rather than relying on the sync effect, which skips while the
       // content is focused — where focus lands after the modal closes is not ours to predict
       if (!isNil(contentRef.current)) {
-        contentRef.current.innerHTML = persistsMarkdown ? markdownToHtml(edited) : edited
+        contentRef.current.innerHTML = persistsMarkdown ? markdownToHtml(edited, resolveAssetSrc) : edited
       }
 
       onChange?.(persistsMarkdown ? edited : toStoredValue(edited))

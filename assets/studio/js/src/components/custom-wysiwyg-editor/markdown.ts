@@ -32,12 +32,6 @@ const serializer = new TurndownService({
 })
 
 /**
- * Links and images dropped from the element tree carry `pimcore_id` / `pimcore_type`, and markdown
- * link syntax has nowhere to put them — turndown would reduce such a link to `[Foo](/foo)` and lose
- * the reference Pimcore matches to rewrite it to a public URL on output. Keeping the original tag
- * preserves it, and inline HTML is valid markdown.
- */
-/**
  * An element reference is written as a `pimcore:` address, so a value stored as markdown is
  * markdown throughout rather than markdown with anchors embedded in it. Reading accepts the address
  * and the tag alike, so a value written either way still loads.
@@ -99,27 +93,43 @@ renderer.normalizeLink = (url: string): string => ELEMENT_URI_VALUE.test(url) ? 
  * `htmlToMarkdown` — so a stored value never contains the address, and Pimcore's dependency
  * tracking, link rewriting and id rewriting, which all match on those attributes, keep working.
  *
- * The address itself is dropped rather than kept as the href: Pimcore fills in the element's real
- * path when it rewrites the value, and does so whether the attribute is wrong or missing entirely.
+ * The address itself is not kept as the href: Pimcore fills in the element's real path when it
+ * rewrites the value, and does so whether that attribute is wrong or missing entirely. An image is
+ * the exception — it needs a source the editor can load, which the caller resolves.
  */
-const resolveElementUris = (html: string): string => html.replace(LINK_OR_IMAGE_TAG, (tag) => {
-  const match = ELEMENT_URI.exec(tag)
+const resolveElementUris = (html: string, resolveAssetSrc?: AssetSrcResolver): string =>
+  html.replace(LINK_OR_IMAGE_TAG, (tag) => {
+    const match = ELEMENT_URI.exec(tag)
 
-  if (match === null || /\bpimcore_id=/i.test(tag)) {
-    return tag
-  }
+    if (match === null || /\bpimcore_id=/i.test(tag)) {
+      return tag
+    }
 
-  const selfClosing = tag.endsWith('/>')
-  const body = tag
-    .slice(0, tag.length - (selfClosing ? 2 : 1))
-    .replace(ELEMENT_URI, '')
-    .replace(/\s+/g, ' ')
-    .trimEnd()
+    const [, type, id] = match
+    const selfClosing = tag.endsWith('/>')
+    const body = tag
+      .slice(0, tag.length - (selfClosing ? 2 : 1))
+      .replace(ELEMENT_URI, '')
+      .replace(/\s+/g, ' ')
+      .trimEnd()
 
-  return `${body} pimcore_id="${match[2]}" pimcore_type="${match[1]}"${selfClosing ? ' />' : '>'}`
-})
+    // An image needs a source the browser can actually load. Pimcore substitutes the element's own
+    // path, but only when it renders the value for a reader - the editor never sees that, and an
+    // img without a src shows nothing at all.
+    const source = tag.startsWith('<img') && type.toLowerCase() === 'asset' && resolveAssetSrc !== undefined
+      ? ` src="${resolveAssetSrc(Number(id))}"`
+      : ''
+
+    return `${body}${source} pimcore_id="${id}" pimcore_type="${type}"${selfClosing ? ' />' : '>'}`
+  })
 
 export const htmlToMarkdown = (html: string): string => serializer.turndown(html).trim()
 
-export const markdownToHtml = (markdown: string): string =>
-  resolveElementUris(renderer.render(markdown).trim())
+/**
+ * Builds a loadable URL for an asset the editor has only an id for. Supplied by the caller so this
+ * module stays free of the Studio SDK, and so it can be exercised without one.
+ */
+export type AssetSrcResolver = (assetId: number) => string
+
+export const markdownToHtml = (markdown: string, resolveAssetSrc?: AssetSrcResolver): string =>
+  resolveElementUris(renderer.render(markdown).trim(), resolveAssetSrc)
