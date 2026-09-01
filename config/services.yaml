@@ -27,3 +27,10 @@ services:
         arguments:
             $persistenceFormat: '%pimcore_wysiwyg_editor.persistence_format%'
         tags: [ 'pimcore.studio_backend.settings_provider' ]
+
+    #
+    # FRONTEND RENDERING
+    #
+    # turns a value stored as markdown into the HTML a page shows
+    Pimcore\Bundle\WysiwygEditor\Wysiwyg\MarkdownRenderer:
+        public: true

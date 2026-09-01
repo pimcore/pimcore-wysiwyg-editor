@@ -26,12 +26,15 @@ public URLs on output.
 
 ### Choosing a format
 
-`html` is the safer choice for **document editables**. Pimcore writes an editable's stored value
-into the page as-is, so markdown would reach the frontend as literal `# text` unless the template
-converts it first.
+Either format renders correctly in a document. Pimcore writes an editable's stored value into the
+page as it stands, which would show markdown as its own source, so the bundle replaces the built-in
+`wysiwyg` editable with one that converts the value on its way to a reader. It parses CommonMark,
+the same specification the editor itself parses, so a page shows what the editor showed.
 
-`markdown` suits values consumed by an API or rendered by a frontend that does its own markdown
-conversion — a headless setup, for instance.
+What still differs is how an element link is stored — see the table above. Under `markdown` such a
+link is invisible to Pimcore's dependency tracking, so `html` remains the safer choice where that
+matters. `markdown` suits values consumed by an API or rendered by a frontend that converts the
+markdown itself.
 
 ### Addressing an element by id
 
