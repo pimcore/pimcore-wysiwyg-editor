@@ -64,8 +64,11 @@ matching `pimcore_id` / `pimcore_type` on a tag. An address is invisible to that
 
 - not recorded as a dependency — the Dependencies tab stays empty, and deleting a linked element
   warns nobody that it is still referenced,
-- not rewritten to a public URL on output,
 - not remapped when ids change, as when a tree is copied or imported.
+
+The link itself still reaches a reader pointing at the right place: rendering turns the address into
+the attributes Pimcore matches, so the URL is rewritten on output as it is for stored HTML. What is
+missing is Pimcore's record of the reference, not the reference itself.
 
 Choose `html` if those matter. Under `html`, Pimcore also fills in the element's real path whenever
 it rewrites the value, whether the existing path is wrong or missing altogether.

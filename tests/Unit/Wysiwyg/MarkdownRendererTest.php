@@ -133,6 +133,47 @@ class MarkdownRendererTest extends Unit
         $this->assertStringNotContainsString('src="pimcore:', $html);
     }
 
+    /**
+     * An image is emitted self-closing, and the address sits among its attributes; removing it has
+     * to leave a tag a browser can still parse.
+     */
+    public function testLeavesAnImageTagWellFormed(): void
+    {
+        $html = $this->renderer->toHtml('![Alt](pimcore:link:asset:9)');
+
+        $this->assertMatchesRegularExpression('@<img(?: [a-z_]+="[^"]*")+ ?/>@', $html);
+        // a slash stranded among the attributes rather than closing the tag
+        $this->assertStringNotContainsString('/ pimcore_id', $html);
+        $this->assertDoesNotMatchRegularExpression('@<img\s\s@', $html);
+    }
+
+    public function testLeavesALinkTagWellFormed(): void
+    {
+        $html = $this->renderer->toHtml('[Label](pimcore:link:document:12)');
+
+        $this->assertStringContainsString('<a pimcore_id="12" pimcore_type="document">Label</a>', $html);
+    }
+
+    /**
+     * The editor writes a single newline for each `<br>`, so one has to come back as a line break.
+     * Left as CommonMark's default a browser would collapse it into a space.
+     */
+    public function testRendersASingleNewlineAsALineBreak(): void
+    {
+        $html = $this->renderer->toHtml("line one\nline two");
+
+        $this->assertStringContainsString('<br', $html);
+        $this->assertStringContainsString('line one', $html);
+        $this->assertStringContainsString('line two', $html);
+    }
+
+    public function testKeepsSeparateParagraphsSeparate(): void
+    {
+        $html = $this->renderer->toHtml("first\n\nsecond");
+
+        $this->assertSame(2, substr_count($html, '<p>'));
+    }
+
     public function testLeavesAnOrdinaryLinkAlone(): void
     {
         $html = $this->renderer->toHtml('[Site](https://example.com)');

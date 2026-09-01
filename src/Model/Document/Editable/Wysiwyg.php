@@ -30,7 +30,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 class Wysiwyg extends BaseWysiwyg
 {
-    public function frontend(): string
+    public function frontend(): ?string
     {
         $text = $this->text;
 
@@ -38,7 +38,8 @@ class Wysiwyg extends BaseWysiwyg
             $text = $this->getMarkdownRenderer()->toHtml($text);
         }
 
-        // element references are resolved to public paths afterwards, exactly as for stored HTML
+        // nullable throughout, as the editable this replaces is: an unset one has no text, and
+        // Text::wysiwygText hands back what it was given when there is nothing to rewrite
         return Text::wysiwygText($text, [
             'document' => $this->getDocument(),
             'context' => $this,

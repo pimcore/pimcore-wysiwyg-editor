@@ -44,6 +44,12 @@ final class MarkdownRenderer
             // same way. Dropping it here would silently lose that content.
             'html_input' => 'allow',
             'allow_unsafe_links' => false,
+            'renderer' => [
+                // The editor treats a single newline as a line break, since that is what it writes
+                // for each <br>. CommonMark leaves one as whitespace, which a browser collapses, so
+                // without this a break made in the editor disappears from the page.
+                'soft_break' => "<br />\n",
+            ],
         ]);
         $environment->addExtension(new CommonMarkCoreExtension());
 
@@ -78,11 +84,23 @@ final class MarkdownRenderer
 
             [, , $type, $id] = $address;
 
+            // an image is emitted self-closing, and dropping only the ">" would leave the slash
+            // stranded in the middle of the tag
+            $close = str_ends_with($element, '/>') ? '/>' : '>';
+            $body = substr($element, 0, -strlen($close));
+
             // the address is dropped: Text::wysiwygText fills in the element's own path, and does so
             // whether the attribute is wrong or missing altogether
-            $body = rtrim(preg_replace(self::ELEMENT_URI, '', substr($element, 0, -1)) ?? '');
+            $body = preg_replace(self::ELEMENT_URI, '', $body) ?? $body;
+            $body = rtrim((string)preg_replace('@\s+@', ' ', $body));
 
-            return sprintf('%s pimcore_id="%s" pimcore_type="%s">', $body, $id, strtolower($type));
+            return sprintf(
+                '%s pimcore_id="%s" pimcore_type="%s"%s',
+                $body,
+                $id,
+                strtolower($type),
+                $close === '/>' ? ' />' : '>'
+            );
         }, $html) ?? $html;
     }
 }
