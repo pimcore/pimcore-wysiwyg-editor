@@ -15,8 +15,16 @@ namespace Pimcore\Bundle\WysiwygEditor\Wysiwyg;
 
 enum PersistenceFormat: string
 {
+    /** Container parameter the bundle's configuration is written to. */
+    public const PARAMETER = 'pimcore_wysiwyg_editor.persistence_format';
+
     case Markdown = 'markdown';
     case Html = 'html';
+
+    public static function default(): self
+    {
+        return self::Markdown;
+    }
 
     /**
      * @return string[]

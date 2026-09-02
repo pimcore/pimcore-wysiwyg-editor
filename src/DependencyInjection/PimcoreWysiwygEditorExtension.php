@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Pimcore\Bundle\WysiwygEditor\DependencyInjection;
 
+use Pimcore\Bundle\WysiwygEditor\Model\Document\Editable\Wysiwyg;
+use Pimcore\Bundle\WysiwygEditor\Wysiwyg\PersistenceFormat;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
@@ -28,10 +30,7 @@ class PimcoreWysiwygEditorExtension extends Extension implements PrependExtensio
     {
         $config = $this->processConfiguration(new Configuration(), $configs);
 
-        $container->setParameter(
-            'pimcore_wysiwyg_editor.persistence_format',
-            $config['persistence_format']
-        );
+        $container->setParameter(PersistenceFormat::PARAMETER, $config['persistence_format']);
 
         $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../../config'));
         $loader->load('services.yaml');
@@ -39,6 +38,19 @@ class PimcoreWysiwygEditorExtension extends Extension implements PrependExtensio
 
     public function prepend(ContainerBuilder $container): void
     {
+        // Takes the place of the built-in wysiwyg editable, which writes its value into the page as
+        // it stands and so shows markdown unrendered. The editable loader consults this map before
+        // the namespace prefixes, so a built-in type can be replaced through it.
+        $container->prependExtensionConfig('pimcore', [
+            'documents' => [
+                'editables' => [
+                    'map' => [
+                        'wysiwyg' => Wysiwyg::class,
+                    ],
+                ],
+            ],
+        ]);
+
         $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../../config'));
         $loader->load('studio_ui.yaml');
     }
