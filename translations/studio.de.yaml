@@ -9,6 +9,7 @@ wysiwyg-editor.toolbar.blockquote: Blockzitat
 wysiwyg-editor.toolbar.link: Link einfügen
 wysiwyg-editor.toolbar.remove-format: Formatierung entfernen
 wysiwyg-editor.toolbar.paste-plain-text: Als unformatierten Text einfügen
+wysiwyg-editor.toolbar.paste-plain-text-unavailable: "Der Zugriff auf die Zwischenablage wurde nicht erlaubt. Verwenden Sie Strg+Umschalt+V (⌘+Umschalt+V auf dem Mac), um als unformatierten Text einzufügen."
 wysiwyg-editor.toolbar.code-view: Code-Ansicht
 wysiwyg-editor.toolbar.undo: Rückgängig
 wysiwyg-editor.toolbar.redo: Wiederherstellen

@@ -38,8 +38,7 @@ export interface EditorToolbarProps {
   linkPopoverOpen: boolean
   onLinkPopoverOpenChange: (open: boolean) => void
   onOpenCodeView: () => void
-  pasteAsPlainText: boolean
-  onTogglePasteAsPlainText: () => void
+  onPasteAsPlainText: () => void
 }
 
 const BLOCK_OPTIONS = [
@@ -61,8 +60,7 @@ export const EditorToolbar = ({
   linkPopoverOpen,
   onLinkPopoverOpenChange,
   onOpenCodeView,
-  pasteAsPlainText,
-  onTogglePasteAsPlainText
+  onPasteAsPlainText
 }: EditorToolbarProps): React.JSX.Element => {
   const { t } = useTranslation()
   const { styles, cx } = useStyles()
@@ -206,12 +204,7 @@ export const EditorToolbar = ({
       <div className={ styles.toolbarDivider } />
 
       { formatButton(<ClearFormatIcon />, t('wysiwyg-editor.toolbar.remove-format'), 'removeFormat') }
-      { toolbarButton(
-        <PastePlainTextIcon />,
-        t('wysiwyg-editor.toolbar.paste-plain-text'),
-        onTogglePasteAsPlainText,
-        pasteAsPlainText
-      ) }
+      { toolbarButton(<PastePlainTextIcon />, t('wysiwyg-editor.toolbar.paste-plain-text'), onPasteAsPlainText) }
       { toolbarButton(<CodeViewIcon />, t('wysiwyg-editor.toolbar.code-view'), onOpenCodeView) }
     </div>
   )

@@ -9,6 +9,7 @@ wysiwyg-editor.toolbar.blockquote: Blokksitat
 wysiwyg-editor.toolbar.link: Sett inn lenke
 wysiwyg-editor.toolbar.remove-format: Fjern formatering
 wysiwyg-editor.toolbar.paste-plain-text: Lim inn som ren tekst
+wysiwyg-editor.toolbar.paste-plain-text-unavailable: "Tilgang til utklippstavlen ble ikke gitt. Bruk Ctrl+Shift+V (⌘+Shift+V på Mac) for å lime inn som ren tekst."
 wysiwyg-editor.toolbar.code-view: Kodevisning
 wysiwyg-editor.toolbar.undo: Angre
 wysiwyg-editor.toolbar.redo: Gjør om

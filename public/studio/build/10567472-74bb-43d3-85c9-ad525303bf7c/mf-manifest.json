@@ -21,7 +21,7 @@
     },
     "globalName": "pimcore_wysiwyg_editor_bundle",
     "pluginVersion": "2.8.2",
-    "publicPath": "/bundles/pimcorewysiwygeditor/studio/build/47c097bd-e6db-44e6-b296-cd8f4288968e/"
+    "publicPath": "/bundles/pimcorewysiwygeditor/studio/build/10567472-74bb-43d3-85c9-ad525303bf7c/"
   },
   "shared": [
     {
@@ -34,7 +34,7 @@
         "js": {
           "async": [],
           "sync": [
-            "static/js/async/123.253fdb67.js"
+            "static/js/async/123.c77a941e.js"
           ]
         },
         "css": {
@@ -54,7 +54,7 @@
         "js": {
           "async": [],
           "sync": [
-            "static/js/async/858.50e5b51b.js"
+            "static/js/async/858.91a591da.js"
           ]
         },
         "css": {
@@ -114,7 +114,7 @@
         "js": {
           "async": [],
           "sync": [
-            "static/js/109.df9081cf.js",
+            "static/js/109.14e175f1.js",
             "static/js/remoteEntry.js"
           ]
         },
@@ -135,7 +135,7 @@
         "js": {
           "async": [],
           "sync": [
-            "static/js/109.df9081cf.js",
+            "static/js/109.14e175f1.js",
             "static/js/remoteEntry.js"
           ]
         },
@@ -206,10 +206,10 @@
       "assets": {
         "js": {
           "sync": [
-            "static/js/async/__federation_expose_plugins.d8196643.js"
+            "static/js/async/__federation_expose_plugins.12696724.js"
           ],
           "async": [
-            "static/js/async/892.151e2b0d.js"
+            "static/js/async/892.3447dab0.js"
           ]
         },
         "css": {
