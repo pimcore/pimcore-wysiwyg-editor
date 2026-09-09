@@ -22,7 +22,6 @@ wysiwyg-editor.block.heading-6: Rubrik 6
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Länktext (valfritt)
 wysiwyg-editor.link.insert: Infoga
-wysiwyg-editor.code-view.title-markdown: Redigera markdown-källkod
-wysiwyg-editor.code-view.title-html: Redigera HTML-källkod
+wysiwyg-editor.code-view.title: Redigera HTML-källkod
 wysiwyg-editor.code-view.apply: Tillämpa
 wysiwyg-editor.code-view.cancel: Avbryt

@@ -12,8 +12,6 @@ import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } f
 import { type WysiwygEditorRef, type WysiwygProps } from '@pimcore/studio-ui-bundle/modules/wysiwyg'
 import { createImageThumbnailUrl, type DragAndDropInfo } from '@pimcore/studio-ui-bundle/components'
 import { escapeHtml, toCssDimension } from '@pimcore/studio-ui-bundle/utils'
-import { useSettings } from '@pimcore/studio-ui-bundle/modules/app'
-import { htmlToMarkdown, markdownToHtml } from './markdown'
 import { isNil } from 'lodash'
 import { useStyles } from './custom-wysiwyg-editor.styles'
 import { EditorToolbar } from './editor-toolbar'
@@ -45,9 +43,6 @@ const BROWSER_RENDERABLE_EXTENSIONS = ['jpg', 'jpeg', 'gif', 'png', 'webp', 'avi
 
 const getFileExtension = (path: string): string => path.split('.').pop()?.toLowerCase() ?? ''
 
-/** Setting published by the bundle's WysiwygSettingsProvider. */
-const PERSISTENCE_FORMAT_SETTING = 'wysiwyg_editor_persistence_format'
-
 export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
   ({ value, onChange, disabled, width, height, placeholder }, ref): React.JSX.Element => {
     const wrapperRef = useRef<HTMLDivElement>(null)
@@ -57,16 +52,6 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     const [codeViewOpen, setCodeViewOpen] = useState(false)
     const [pasteAsPlainText, setPasteAsPlainText] = useState(false)
     const { styles } = useStyles()
-    const settings = useSettings()
-
-    // the editor always works in HTML; markdown, when configured, is only the persisted form
-    const persistsMarkdown = (settings as Record<string, any>)[PERSISTENCE_FORMAT_SETTING] !== 'html'
-    // an image stored only as an element address needs a real URL before the editor can show it
-    const resolveAssetSrc = (assetId: number): string =>
-      createImageThumbnailUrl(assetId, { width: DROPPED_IMAGE_WIDTH, mimeType: 'JPEG' })
-    const toEditorHtml = (stored?: string | null): string =>
-      persistsMarkdown ? markdownToHtml(stored ?? '', resolveAssetSrc) : stored ?? ''
-    const toStoredValue = (html: string): string => persistsMarkdown ? htmlToMarkdown(html) : html
 
     const isEditable = disabled !== true
     // the toolbar stays out of the way until the field is actually being worked on, but must
@@ -76,7 +61,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     const { formatState, refreshFormatState, restoreSelection } = useEditorSelection(contentRef, showToolbar)
 
     const valueIsEmpty = isNil(value) || value.trim() === '' || value === '<p></p>' || value === '<br>'
-    const editorHtml = toEditorHtml(value)
+    const editorHtml = value ?? ''
 
     useImperativeHandle(ref, (): WysiwygEditorRef => ({
       onDrop: (info: DragAndDropInfo): void => {
@@ -117,7 +102,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       // stored value is the sound one.
       const draft = content.cloneNode(true) as HTMLElement
       normalizeNestedLists(draft)
-      onChange?.(toStoredValue(draft.innerHTML))
+      onChange?.(draft.innerHTML)
     }
 
     const handleInput = (): void => {
@@ -517,19 +502,14 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       )
     }
 
-    /**
-     * The modal edits the field in the form it is stored in: markdown where that is configured,
-     * HTML otherwise. Editing HTML while the field persists markdown would show the user a form
-     * their edits are immediately converted out of.
-     */
     const handleApplyCodeView = (edited: string): void => {
       // write through to the DOM rather than relying on the sync effect, which skips while the
       // content is focused — where focus lands after the modal closes is not ours to predict
       if (!isNil(contentRef.current)) {
-        contentRef.current.innerHTML = persistsMarkdown ? markdownToHtml(edited, resolveAssetSrc) : edited
+        contentRef.current.innerHTML = edited
       }
 
-      onChange?.(persistsMarkdown ? edited : toStoredValue(edited))
+      onChange?.(edited)
       setCodeViewOpen(false)
     }
 
@@ -570,12 +550,11 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         />
 
         <CodeViewModal
-          language={ persistsMarkdown ? 'markdown' : 'html' }
           onApply={ handleApplyCodeView }
           onCancel={ () => { setCodeViewOpen(false) } }
           open={ codeViewOpen }
           readOnly={ !isEditable }
-          value={ persistsMarkdown ? value ?? '' : editorHtml }
+          value={ editorHtml }
         />
       </div>
     )
