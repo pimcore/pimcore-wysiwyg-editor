@@ -13,32 +13,19 @@ declare(strict_types=1);
 
 namespace Pimcore\Bundle\WysiwygEditor\DependencyInjection;
 
-use Pimcore\Bundle\WysiwygEditor\Wysiwyg\PersistenceFormat;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
 /**
+ * The bundle takes no options. The tree exists so that an option a project still sets — the former
+ * persistence format in particular — is rejected when the container is built, rather than ignored.
+ *
  * @internal
  */
 final class Configuration implements ConfigurationInterface
 {
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $treeBuilder = new TreeBuilder('pimcore_wysiwyg_editor');
-
-        $treeBuilder->getRootNode()
-            ->children()
-                ->enumNode('persistence_format')
-                    ->info(
-                        'Format the editor stores its value in. ' .
-                        '"markdown" keeps the value portable; "html" stores what the editor renders, ' .
-                        'which is what Pimcore outputs directly in a document.'
-                    )
-                    ->values(PersistenceFormat::values())
-                    ->defaultValue(PersistenceFormat::Markdown->value)
-                ->end()
-            ->end();
-
-        return $treeBuilder;
+        return new TreeBuilder('pimcore_wysiwyg_editor');
     }
 }

@@ -23,7 +23,6 @@ wysiwyg-editor.block.heading-6: Titolo 6
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Testo del collegamento (opzionale)
 wysiwyg-editor.link.insert: Inserisci
-wysiwyg-editor.code-view.title-markdown: Modifica sorgente markdown
-wysiwyg-editor.code-view.title-html: Modifica sorgente HTML
+wysiwyg-editor.code-view.title: Modifica sorgente HTML
 wysiwyg-editor.code-view.apply: Applica
 wysiwyg-editor.code-view.cancel: Annulla

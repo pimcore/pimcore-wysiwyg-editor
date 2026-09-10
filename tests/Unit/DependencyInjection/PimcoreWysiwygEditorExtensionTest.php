@@ -14,58 +14,33 @@ declare(strict_types=1);
 namespace Pimcore\Bundle\WysiwygEditor\Tests\Unit\DependencyInjection;
 
 use Codeception\Test\Unit;
-use Pimcore\Bundle\WysiwygEditor\DependencyInjection\Configuration;
 use Pimcore\Bundle\WysiwygEditor\DependencyInjection\PimcoreWysiwygEditorExtension;
-use Pimcore\Bundle\WysiwygEditor\Model\Document\Editable\Wysiwyg;
-use Pimcore\Bundle\WysiwygEditor\Wysiwyg\PersistenceFormat;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
-use Symfony\Component\Config\Definition\Processor;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 class PimcoreWysiwygEditorExtensionTest extends Unit
 {
-    /**
-     * Rendering markdown depends on this editable taking the place of the built-in one. Without the
-     * mapping the built-in writes the value into the page as it stands, and markdown is read as its
-     * own source.
-     */
-    public function testRegistersTheEditableInPlaceOfTheBuiltInOne(): void
+    public function testLoadsWithoutConfiguration(): void
     {
         $container = new ContainerBuilder();
 
-        (new PimcoreWysiwygEditorExtension())->prepend($container);
+        (new PimcoreWysiwygEditorExtension())->load([], $container);
 
-        $configs = $container->getExtensionConfig('pimcore');
-        $map = $configs[0]['documents']['editables']['map'] ?? [];
-
-        $this->assertSame(Wysiwyg::class, $map['wysiwyg'] ?? null);
+        $this->assertTrue($container->hasDefinition('Pimcore\Bundle\WysiwygEditor\Installer'));
     }
 
-    public function testStoresMarkdownUnlessConfiguredOtherwise(): void
-    {
-        $config = (new Processor())->processConfiguration(new Configuration(), []);
-
-        $this->assertSame(PersistenceFormat::Markdown->value, $config['persistence_format']);
-        $this->assertSame(PersistenceFormat::default()->value, $config['persistence_format']);
-    }
-
-    public function testKeepsTheConfiguredFormat(): void
-    {
-        $config = (new Processor())->processConfiguration(
-            new Configuration(),
-            [['persistence_format' => PersistenceFormat::Html->value]]
-        );
-
-        $this->assertSame(PersistenceFormat::Html->value, $config['persistence_format']);
-    }
-
-    public function testRejectsAFormatItCannotStore(): void
+    /**
+     * The bundle used to store markdown when told to. A project still carrying that setting must
+     * learn about the change when its container is built, not by finding markdown on its pages.
+     */
+    public function testRejectsTheFormerPersistenceFormatOption(): void
     {
         $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/persistence_format/');
 
-        (new Processor())->processConfiguration(
-            new Configuration(),
-            [['persistence_format' => 'textile']]
+        (new PimcoreWysiwygEditorExtension())->load(
+            [['persistence_format' => 'markdown']],
+            new ContainerBuilder()
         );
     }
 }
