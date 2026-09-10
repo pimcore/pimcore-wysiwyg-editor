@@ -15,12 +15,17 @@ import { settingsMock } from '../../../test-utils/mocks/studio-ui-modules-app-mo
 import { CustomWysiwygEditor } from './custom-wysiwyg-editor'
 
 const PASTE_BUTTON = 'wysiwyg-editor.toolbar.paste-plain-text'
+const HORIZONTAL_RULE_BUTTON = 'wysiwyg-editor.toolbar.horizontal-rule'
 
-/** jsdom has no execCommand; this stand-in appends inserted text so the emitted value reflects it. */
+/** jsdom has no execCommand; this stand-in mimics the browser so the emitted value reflects the edit. */
 const installExecCommand = (content: HTMLElement): jest.Mock => {
   const execCommand = jest.fn((command: string, _ui?: boolean, argument?: string) => {
     if (command === 'insertText' && argument !== undefined) {
       content.append(argument)
+    }
+
+    if (command === 'insertHorizontalRule') {
+      content.append(content.ownerDocument.createElement('hr'))
     }
 
     return true
@@ -103,5 +108,17 @@ describe('CustomWysiwygEditor paste as plain text', () => {
     expect(execCommand).not.toHaveBeenCalledWith('insertText', expect.anything(), expect.anything())
     expect(onChange).not.toHaveBeenCalled()
     expect(messageMock.warning).not.toHaveBeenCalled()
+  })
+})
+
+describe('CustomWysiwygEditor horizontal rule', () => {
+  it('inserts a rule through the browser command and emits the new value', () => {
+    const { onChange, content } = renderEditor()
+    const execCommand = installExecCommand(content)
+
+    fireEvent.click(screen.getByRole('button', { name: HORIZONTAL_RULE_BUTTON }))
+
+    expect(execCommand).toHaveBeenCalledWith('insertHorizontalRule', false, undefined)
+    expect(onChange).toHaveBeenLastCalledWith('<p>kept</p><hr>')
   })
 })

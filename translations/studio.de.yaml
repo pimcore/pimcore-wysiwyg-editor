@@ -6,6 +6,7 @@ wysiwyg-editor.toolbar.ordered-list: Nummerierte Liste
 wysiwyg-editor.toolbar.indent: Einrücken
 wysiwyg-editor.toolbar.outdent: Ausrücken
 wysiwyg-editor.toolbar.blockquote: Blockzitat
+wysiwyg-editor.toolbar.horizontal-rule: Horizontale Linie
 wysiwyg-editor.toolbar.link: Link einfügen
 wysiwyg-editor.toolbar.remove-format: Formatierung entfernen
 wysiwyg-editor.toolbar.paste-plain-text: Als unformatierten Text einfügen

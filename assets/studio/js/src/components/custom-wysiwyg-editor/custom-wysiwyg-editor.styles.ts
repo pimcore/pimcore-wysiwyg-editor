@@ -98,6 +98,12 @@ export const useStyles = createStyles(({ token }) => {
         padding: '4px 12px',
         borderLeft: `3px solid ${token.colorBorder}`,
         color: token.colorTextSecondary
+      },
+
+      '& hr': {
+        margin: '12px 0',
+        border: 0,
+        borderTop: `1px solid ${token.colorBorder}`
       }
     },
 

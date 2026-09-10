@@ -6,6 +6,7 @@ wysiwyg-editor.toolbar.ordered-list: Liste numérotée
 wysiwyg-editor.toolbar.indent: Augmenter le retrait
 wysiwyg-editor.toolbar.outdent: Diminuer le retrait
 wysiwyg-editor.toolbar.blockquote: Citation
+wysiwyg-editor.toolbar.horizontal-rule: Ligne horizontale
 wysiwyg-editor.toolbar.link: Insérer un lien
 wysiwyg-editor.toolbar.remove-format: Supprimer la mise en forme
 wysiwyg-editor.toolbar.paste-plain-text: Coller en texte brut

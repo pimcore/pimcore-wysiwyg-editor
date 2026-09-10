@@ -6,6 +6,7 @@ wysiwyg-editor.toolbar.ordered-list: Numbered list
 wysiwyg-editor.toolbar.indent: Indent
 wysiwyg-editor.toolbar.outdent: Outdent
 wysiwyg-editor.toolbar.blockquote: Blockquote
+wysiwyg-editor.toolbar.horizontal-rule: Horizontal rule
 wysiwyg-editor.toolbar.link: Insert link
 wysiwyg-editor.toolbar.remove-format: Remove formatting
 wysiwyg-editor.toolbar.paste-plain-text: Paste as plain text

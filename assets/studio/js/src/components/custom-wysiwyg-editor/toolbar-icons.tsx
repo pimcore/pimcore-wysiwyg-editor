@@ -95,6 +95,14 @@ export const BlockquoteIcon = (): React.JSX.Element => (
   </ToolbarIcon>
 )
 
+export const HorizontalRuleIcon = (): React.JSX.Element => (
+  <ToolbarIcon>
+    <path d="M3 12h18" />
+    <path d="M8 6h8" />
+    <path d="M8 18h8" />
+  </ToolbarIcon>
+)
+
 export const LinkIcon = (): React.JSX.Element => (
   <ToolbarIcon>
     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
