@@ -26,6 +26,9 @@ class PimcoreWysiwygEditorExtension extends Extension implements PrependExtensio
 {
     public function load(array $configs, ContainerBuilder $container): void
     {
+        // nothing to keep — processing only rejects options the bundle no longer has
+        $this->processConfiguration(new Configuration(), $configs);
+
         $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../../config'));
         $loader->load('services.yaml');
     }
