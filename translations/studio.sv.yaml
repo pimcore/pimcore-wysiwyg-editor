@@ -9,6 +9,7 @@ wysiwyg-editor.toolbar.blockquote: Blockcitat
 wysiwyg-editor.toolbar.link: Infoga länk
 wysiwyg-editor.toolbar.remove-format: Ta bort formatering
 wysiwyg-editor.toolbar.paste-plain-text: Klistra in som oformaterad text
+wysiwyg-editor.toolbar.paste-plain-text-unavailable: "Åtkomst till urklipp beviljades inte. Använd Ctrl+Skift+V (⌘+Skift+V på Mac) för att klistra in som oformaterad text."
 wysiwyg-editor.toolbar.code-view: Kodvy
 wysiwyg-editor.toolbar.undo: Ångra
 wysiwyg-editor.toolbar.redo: Gör om

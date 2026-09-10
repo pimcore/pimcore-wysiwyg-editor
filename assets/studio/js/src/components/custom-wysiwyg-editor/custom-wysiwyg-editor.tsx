@@ -10,8 +10,10 @@
 
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { type WysiwygEditorRef, type WysiwygProps } from '@pimcore/studio-ui-bundle/modules/wysiwyg'
-import { createImageThumbnailUrl, type DragAndDropInfo } from '@pimcore/studio-ui-bundle/components'
+import { createImageThumbnailUrl, type DragAndDropInfo, useMessage } from '@pimcore/studio-ui-bundle/components'
 import { escapeHtml, toCssDimension } from '@pimcore/studio-ui-bundle/utils'
+import { useTranslation } from '@pimcore/studio-ui-bundle/app'
+import { readClipboardText } from './clipboard'
 import { isNil } from 'lodash'
 import { useStyles } from './custom-wysiwyg-editor.styles'
 import { EditorToolbar } from './editor-toolbar'
@@ -50,8 +52,9 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     const [hasFocus, setHasFocus] = useState(false)
     const [linkPopoverOpen, setLinkPopoverOpen] = useState(false)
     const [codeViewOpen, setCodeViewOpen] = useState(false)
-    const [pasteAsPlainText, setPasteAsPlainText] = useState(false)
     const { styles } = useStyles()
+    const messageApi = useMessage()
+    const { t } = useTranslation()
 
     const isEditable = disabled !== true
     // the toolbar stays out of the way until the field is actually being worked on, but must
@@ -110,22 +113,33 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     }
 
     /**
-     * While the toggle is on, a paste contributes text and nothing else — no styles, classes or
-     * markup from wherever it came from. The clipboard's plain-text flavour is used rather than the
-     * text of its HTML flavour, which would also pick up the contents of any script tag in it.
+     * Inserts what is on the clipboard as text and nothing else — no styles, classes or markup from
+     * wherever it came from. The clipboard's plain-text flavour is used rather than the text of its
+     * HTML flavour, which would also pick up the contents of any script tag in it.
+     *
+     * This is an action, not a mode: the button pastes right away, which is what a user who has just
+     * copied a passage from a word processor expects it to do.
      */
-    const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>): void => {
-      if (!pasteAsPlainText || !isEditable) {
+    const handlePasteAsPlainText = async (): Promise<void> => {
+      if (!isEditable) {
         return
       }
 
-      event.preventDefault()
+      const text = await readClipboardText(contentRef.current?.ownerDocument.defaultView?.navigator.clipboard)
 
-      const text = event.clipboardData.getData('text/plain')
+      if (text === null) {
+        // the browser will not share the clipboard; its own plain-text paste shortcut still works
+        void messageApi.warning(t('wysiwyg-editor.toolbar.paste-plain-text-unavailable'))
+
+        return
+      }
 
       if (text === '') {
         return
       }
+
+      // the selection may have moved while the browser asked for permission
+      focusContent()
 
       // insertText keeps the paste in the undo history and splits lines into blocks
       contentRef.current?.ownerDocument.execCommand('insertText', false, text)
@@ -530,8 +544,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
             onLinkPopoverOpenChange={ setLinkPopoverOpen }
             onIndent={ handleIndent }
             onOpenCodeView={ () => { setCodeViewOpen(true) } }
-            onTogglePasteAsPlainText={ () => { setPasteAsPlainText((current) => !current) } }
-            pasteAsPlainText={ pasteAsPlainText }
+            onPasteAsPlainText={ () => { void handlePasteAsPlainText() } }
             onToggleMark={ handleToggleMark }
           />
         ) }
@@ -543,7 +556,6 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
           data-placeholder={ placeholder }
           onInput={ handleInput }
           onKeyDown={ handleKeyDown }
-          onPaste={ handlePaste }
           ref={ contentRef }
           style={ { minHeight: toCssDimension(height) } }
           suppressContentEditableWarning

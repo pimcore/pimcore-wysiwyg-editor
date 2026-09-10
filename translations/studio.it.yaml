@@ -9,6 +9,7 @@ wysiwyg-editor.toolbar.blockquote: Citazione
 wysiwyg-editor.toolbar.link: Inserisci collegamento
 wysiwyg-editor.toolbar.remove-format: Rimuovi formattazione
 wysiwyg-editor.toolbar.paste-plain-text: Incolla come testo semplice
+wysiwyg-editor.toolbar.paste-plain-text-unavailable: "L'accesso agli appunti non è stato concesso. Usa Ctrl+Maiusc+V (⌘+Maiusc+V su Mac) per incollare come testo semplice."
 wysiwyg-editor.toolbar.code-view: Vista codice
 wysiwyg-editor.toolbar.undo: Annulla
 wysiwyg-editor.toolbar.redo: Ripristina

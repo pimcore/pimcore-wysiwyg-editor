@@ -9,6 +9,7 @@ wysiwyg-editor.toolbar.blockquote: Cita
 wysiwyg-editor.toolbar.link: Insertar enlace
 wysiwyg-editor.toolbar.remove-format: Quitar formato
 wysiwyg-editor.toolbar.paste-plain-text: Pegar como texto sin formato
+wysiwyg-editor.toolbar.paste-plain-text-unavailable: "No se ha concedido acceso al portapapeles. Utilice Ctrl+Mayús+V (⌘+Mayús+V en Mac) para pegar como texto sin formato."
 wysiwyg-editor.toolbar.code-view: Vista de código
 wysiwyg-editor.toolbar.undo: Deshacer
 wysiwyg-editor.toolbar.redo: Rehacer

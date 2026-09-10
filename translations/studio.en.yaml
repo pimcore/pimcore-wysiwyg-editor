@@ -9,6 +9,7 @@ wysiwyg-editor.toolbar.blockquote: Blockquote
 wysiwyg-editor.toolbar.link: Insert link
 wysiwyg-editor.toolbar.remove-format: Remove formatting
 wysiwyg-editor.toolbar.paste-plain-text: Paste as plain text
+wysiwyg-editor.toolbar.paste-plain-text-unavailable: "Clipboard access was not granted. Use Ctrl+Shift+V (⌘+Shift+V on Mac) to paste as plain text."
 wysiwyg-editor.toolbar.code-view: Code view
 wysiwyg-editor.toolbar.undo: Undo
 wysiwyg-editor.toolbar.redo: Redo
