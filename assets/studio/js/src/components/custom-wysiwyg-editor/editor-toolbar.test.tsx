@@ -56,6 +56,13 @@ describe('EditorToolbar', () => {
 
     fireEvent.click(button)
 
-    expect(button).toHaveAttribute('aria-pressed', 'false')
+    // the attribute's presence alone declares a toggle to assistive technology
+    expect(button).not.toHaveAttribute('aria-pressed')
+  })
+
+  it('still exposes a formatting button as a toggle', () => {
+    renderToolbar()
+
+    expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' })).toHaveAttribute('aria-pressed')
   })
 })

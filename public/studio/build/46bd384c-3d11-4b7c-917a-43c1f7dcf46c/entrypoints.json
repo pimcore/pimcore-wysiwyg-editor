@@ -1,0 +1,38 @@
+{
+  "entrypoints": {
+    "main": {
+      "js": [
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/858.91a591da.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/892.3447dab0.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/123.c77a941e.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/188.fd4b1f6e.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/948.3d490c9b.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/668.288db39c.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/473.921a41d7.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/109.14e175f1.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/main.abda737a.js"
+      ],
+      "css": []
+    },
+    "pimcore_wysiwyg_editor_bundle": {
+      "js": [
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/858.91a591da.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/892.3447dab0.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/123.c77a941e.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/__federation_expose_plugins.e79f025f.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/188.fd4b1f6e.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/948.3d490c9b.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/668.288db39c.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/async/473.921a41d7.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/static/js/remoteEntry.js"
+      ],
+      "css": []
+    },
+    "exposeRemote": {
+      "js": [
+        "/bundles/pimcorewysiwygeditor/studio/build/46bd384c-3d11-4b7c-917a-43c1f7dcf46c/exposeRemote.js"
+      ],
+      "css": []
+    }
+  }
+}

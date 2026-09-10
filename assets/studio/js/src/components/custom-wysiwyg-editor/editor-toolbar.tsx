@@ -83,18 +83,20 @@ export const EditorToolbar = ({
     onLinkPopoverOpenChange(false)
   }
 
+  // `active` is only passed for a toggle: the mere presence of aria-pressed declares one to
+  // assistive technology, so an action button must not carry it at all
   const toolbarButton = (
     icon: React.ReactNode,
     tooltip: string,
     onClick: () => void,
-    active = false,
+    active?: boolean,
     disabled = false
   ): React.JSX.Element => (
     <Tooltip title={ tooltip }>
       <Button
         aria-label={ tooltip }
         aria-pressed={ active }
-        className={ cx(active && styles.toolbarButtonActive) }
+        className={ cx(active === true && styles.toolbarButtonActive) }
         disabled={ disabled }
         icon={ icon }
         onClick={ onClick }
@@ -109,7 +111,7 @@ export const EditorToolbar = ({
     icon: React.ReactNode,
     tooltip: string,
     command: string,
-    active = false,
+    active?: boolean,
     argument?: string
   ): React.JSX.Element => toolbarButton(icon, tooltip, () => { onCommand(command, argument) }, active)
 
@@ -146,8 +148,8 @@ export const EditorToolbar = ({
 
       { formatButton(<UnorderedListIcon />, t('wysiwyg-editor.toolbar.unordered-list'), 'insertUnorderedList', formatState.unorderedList) }
       { formatButton(<OrderedListIcon />, t('wysiwyg-editor.toolbar.ordered-list'), 'insertOrderedList', formatState.orderedList) }
-      { toolbarButton(<IndentIcon />, t('wysiwyg-editor.toolbar.indent'), () => { onIndent('indent') }, false, !formatState.canIndent) }
-      { toolbarButton(<OutdentIcon />, t('wysiwyg-editor.toolbar.outdent'), () => { onIndent('outdent') }, false, !formatState.canOutdent) }
+      { toolbarButton(<IndentIcon />, t('wysiwyg-editor.toolbar.indent'), () => { onIndent('indent') }, undefined, !formatState.canIndent) }
+      { toolbarButton(<OutdentIcon />, t('wysiwyg-editor.toolbar.outdent'), () => { onIndent('outdent') }, undefined, !formatState.canOutdent) }
       { formatButton(<BlockquoteIcon />, t('wysiwyg-editor.toolbar.blockquote'), 'formatBlock', formatState.blockquote, 'blockquote') }
 
       <div className={ styles.toolbarDivider } />
