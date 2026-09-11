@@ -282,3 +282,22 @@ describe('CustomWysiwygEditor existing link', () => {
     expect(screen.getByRole('button', { name: 'wysiwyg-editor.link.insert' })).toBeInTheDocument()
   })
 })
+
+describe('CustomWysiwygEditor nested numbering', () => {
+  /** The rules antd-style injects for the editor, as one string. */
+  const injectedCss = (): string =>
+    Array.from(document.querySelectorAll('style')).map((style) => style.textContent ?? '').join('\n')
+
+  it('numbers a nested ordered list by its parent item, as 1.1 rather than 1', () => {
+    renderEditor('<ol><li>list<ol><li>item 1</li><li>item 2</li></ol></li></ol>')
+
+    // the browser restarts every list at 1; the marker of a nested item has to carry its parents
+    expect(injectedCss()).toMatch(/ol ol\s*>\s*li::marker\s*\{[^}]*counters\(list-item,\s*"\."\)/)
+  })
+
+  it('leaves the top level with a plain number and a dot', () => {
+    renderEditor('<ol><li>list</li></ol>')
+
+    expect(injectedCss()).not.toMatch(/(^|[^l] )ol\s*>\s*li::marker\s*\{[^}]*counters\(/)
+  })
+})

@@ -105,6 +105,14 @@ export const useStyles = createStyles(({ token }) => {
         margin: '2px 0'
       },
 
+      // A browser restarts every list at 1, so a nested numbered item reads "1." like its parent.
+      // Its marker carries the parents' numbers instead: 1.1, 1.2, and 1.1.1 a level further down.
+      // `list-item` is the counter a browser keeps for every list of its own accord, so nothing
+      // has to be reset or incremented by hand.
+      '& ol ol > li::marker': {
+        content: 'counters(list-item, ".") " "'
+      },
+
       '& blockquote': {
         margin: '8px 0',
         padding: '4px 12px',
