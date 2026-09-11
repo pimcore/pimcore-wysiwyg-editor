@@ -17,9 +17,31 @@ import { CustomWysiwygEditor } from './custom-wysiwyg-editor'
 const PASTE_BUTTON = 'wysiwyg-editor.toolbar.paste-plain-text'
 const HORIZONTAL_RULE_BUTTON = 'wysiwyg-editor.toolbar.horizontal-rule'
 
-/** jsdom has no execCommand; this stand-in mimics the browser so the emitted value reflects the edit. */
+const MUTATING_COMMANDS = ['insertText', 'insertHorizontalRule', 'insertHTML']
+
+/**
+ * jsdom has no execCommand; this stand-in mimics the browser closely enough for the emitted value,
+ * and undo, to reflect the edit: every mutating command snapshots the content first, and 'undo'
+ * restores the last one, the way the real undo history the editor relies on would.
+ */
 const installExecCommand = (content: HTMLElement): jest.Mock => {
+  const history: string[] = []
+
   const execCommand = jest.fn((command: string, _ui?: boolean, argument?: string) => {
+    if (command === 'undo') {
+      const previous = history.pop()
+
+      if (previous !== undefined) {
+        content.innerHTML = previous
+      }
+
+      return true
+    }
+
+    if (MUTATING_COMMANDS.includes(command)) {
+      history.push(content.innerHTML)
+    }
+
     if (command === 'insertText' && argument !== undefined) {
       content.append(argument)
     }
@@ -166,6 +188,30 @@ describe('CustomWysiwygEditor existing link', () => {
 
     // the element attributes would make Pimcore rewrite the URL back to that element on output
     expect(onChange).toHaveBeenLastCalledWith('<p>see <a href="https://new.example">orf</a></p>')
+  })
+
+  it('undoes a link update back to the original address and Pimcore attributes', () => {
+    const { content } = renderEditor(
+      '<p>see <a href="https://old.example" pimcore_id="12" pimcore_type="document">orf</a></p>'
+    )
+    installExecCommand(content)
+    const anchor = content.querySelector('a')
+
+    if (anchor?.firstChild == null) {
+      throw new Error('link not rendered')
+    }
+
+    placeCaretIn(anchor.firstChild)
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' }))
+    fireEvent.change(screen.getByPlaceholderText('wysiwyg-editor.link.url'), { target: { value: 'https://new.example' } })
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.link.update' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+
+    const restored = content.querySelector('a')
+    expect(restored).toHaveAttribute('href', 'https://old.example')
+    expect(restored).toHaveAttribute('pimcore_id', '12')
+    expect(restored).toHaveAttribute('pimcore_type', 'document')
   })
 
   it('keeps an element link intact when its address is confirmed unchanged', () => {
