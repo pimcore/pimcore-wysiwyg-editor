@@ -167,4 +167,28 @@ describe('CustomWysiwygEditor existing link', () => {
     // the element attributes would make Pimcore rewrite the URL back to that element on output
     expect(onChange).toHaveBeenLastCalledWith('<p>see <a href="https://new.example">orf</a></p>')
   })
+
+  it('treats a selection that runs out of the link as new text to link, not as that link', () => {
+    const { content } = renderEditor('<p><a href="https://old.example">orf</a> and more</p>')
+    installExecCommand(content)
+    const anchorText = content.querySelector('a')?.firstChild
+    const trailingText = content.querySelector('p')?.lastChild
+
+    if (anchorText == null || trailingText == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(anchorText, 1)
+    range.setEnd(trailingText, 4)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    act(() => { document.dispatchEvent(new Event('selectionchange')) })
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' }))
+
+    expect(screen.getByPlaceholderText('wysiwyg-editor.link.url')).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'wysiwyg-editor.link.insert' })).toBeInTheDocument()
+  })
 })

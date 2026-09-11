@@ -20,8 +20,8 @@ import { EditorToolbar } from './editor-toolbar'
 import { CodeViewModal } from './code-view-modal'
 import {
   INLINE_MARKS,
+  findEnclosingLink,
   findInlineMark,
-  findLink,
   findListItem,
   resolveSelectionStartNode,
   useEditorSelection,
@@ -417,7 +417,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       return !range.collapsed && content.contains(range.commonAncestorContainer)
     }
 
-    /** The link the caret sits in, if any. */
+    /** The link the selection sits in, if any; see `findEnclosingLink` for what counts as "in". */
     const getCurrentLink = (): HTMLElement | null => {
       const content = contentRef.current
       const selection = content?.ownerDocument.defaultView?.getSelection()
@@ -429,7 +429,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       const range = selection.getRangeAt(0)
 
       return content.contains(range.commonAncestorContainer)
-        ? findLink(content, resolveSelectionStartNode(range))
+        ? findEnclosingLink(content, range)
         : null
     }
 

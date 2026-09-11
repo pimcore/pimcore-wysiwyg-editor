@@ -135,9 +135,20 @@ export const findInlineMark = (root: HTMLElement, node: Node, mark: InlineMark):
 export const findListItem = (root: HTMLElement, node: Node): HTMLElement | null =>
   findAncestor(root, node, (element) => element.nodeName === 'LI')
 
-/** The link the caret sits in, if any. */
-export const findLink = (root: HTMLElement, node: Node): HTMLElement | null =>
-  findAncestor(root, node, (element) => element.nodeName === 'A')
+/**
+ * The link the selection sits in, if any. A selection that starts in a link but runs past it is
+ * not "in" that link: the user is picking text to link, so this returns null and the range is
+ * treated as new text to link rather than as an edit of the first link.
+ */
+export const findEnclosingLink = (root: HTMLElement, range: Range): HTMLElement | null => {
+  const link = findAncestor(root, resolveStartNode(range), (element) => element.nodeName === 'A')
+
+  if (isNil(link) || range.collapsed) {
+    return link
+  }
+
+  return link.contains(range.endContainer) ? link : null
+}
 
 export const resolveSelectionStartNode = resolveStartNode
 
@@ -196,7 +207,7 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
     const block = queryBlockTag(doc)
     const startNode = resolveStartNode(range)
     const listItem = findListItem(content, startNode)
-    const link = findLink(content, startNode)
+    const link = findEnclosingLink(content, range)
 
     setFormatState({
       bold: !isNil(findInlineMark(content, startNode, 'bold')),
