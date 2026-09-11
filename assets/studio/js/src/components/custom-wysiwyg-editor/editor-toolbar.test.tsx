@@ -65,4 +65,19 @@ describe('EditorToolbar', () => {
 
     expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' })).toHaveAttribute('aria-pressed')
   })
+
+  it('inserts a horizontal rule when the button is clicked', () => {
+    const props = renderToolbar()
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.horizontal-rule' }))
+
+    expect(props.onCommand).toHaveBeenCalledTimes(1)
+    expect(props.onCommand).toHaveBeenCalledWith('insertHorizontalRule', undefined)
+  })
+
+  it('offers the horizontal rule as an action, not as a toggle', () => {
+    renderToolbar()
+
+    expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.horizontal-rule' })).not.toHaveAttribute('aria-pressed')
+  })
 })

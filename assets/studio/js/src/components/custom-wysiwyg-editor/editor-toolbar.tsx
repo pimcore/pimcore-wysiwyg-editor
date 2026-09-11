@@ -18,6 +18,7 @@ import {
   BoldIcon,
   ClearFormatIcon,
   CodeViewIcon,
+  HorizontalRuleIcon,
   ItalicIcon,
   LinkIcon,
   IndentIcon,
@@ -151,6 +152,7 @@ export const EditorToolbar = ({
       { toolbarButton(<IndentIcon />, t('wysiwyg-editor.toolbar.indent'), () => { onIndent('indent') }, undefined, !formatState.canIndent) }
       { toolbarButton(<OutdentIcon />, t('wysiwyg-editor.toolbar.outdent'), () => { onIndent('outdent') }, undefined, !formatState.canOutdent) }
       { formatButton(<BlockquoteIcon />, t('wysiwyg-editor.toolbar.blockquote'), 'formatBlock', formatState.blockquote, 'blockquote') }
+      { formatButton(<HorizontalRuleIcon />, t('wysiwyg-editor.toolbar.horizontal-rule'), 'insertHorizontalRule') }
 
       <div className={ styles.toolbarDivider } />
 

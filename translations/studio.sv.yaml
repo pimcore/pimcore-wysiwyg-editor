@@ -6,6 +6,7 @@ wysiwyg-editor.toolbar.ordered-list: Numrerad lista
 wysiwyg-editor.toolbar.indent: Öka indrag
 wysiwyg-editor.toolbar.outdent: Minska indrag
 wysiwyg-editor.toolbar.blockquote: Blockcitat
+wysiwyg-editor.toolbar.horizontal-rule: Horisontell linje
 wysiwyg-editor.toolbar.link: Infoga länk
 wysiwyg-editor.toolbar.remove-format: Ta bort formatering
 wysiwyg-editor.toolbar.paste-plain-text: Klistra in som oformaterad text

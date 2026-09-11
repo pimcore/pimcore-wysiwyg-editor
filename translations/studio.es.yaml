@@ -6,6 +6,7 @@ wysiwyg-editor.toolbar.ordered-list: Lista numerada
 wysiwyg-editor.toolbar.indent: Aumentar sangría
 wysiwyg-editor.toolbar.outdent: Reducir sangría
 wysiwyg-editor.toolbar.blockquote: Cita
+wysiwyg-editor.toolbar.horizontal-rule: Línea horizontal
 wysiwyg-editor.toolbar.link: Insertar enlace
 wysiwyg-editor.toolbar.remove-format: Quitar formato
 wysiwyg-editor.toolbar.paste-plain-text: Pegar como texto sin formato
