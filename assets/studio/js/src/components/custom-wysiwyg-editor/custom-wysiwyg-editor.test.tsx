@@ -17,15 +17,46 @@ import { CustomWysiwygEditor } from './custom-wysiwyg-editor'
 const PASTE_BUTTON = 'wysiwyg-editor.toolbar.paste-plain-text'
 const HORIZONTAL_RULE_BUTTON = 'wysiwyg-editor.toolbar.horizontal-rule'
 
-/** jsdom has no execCommand; this stand-in mimics the browser so the emitted value reflects the edit. */
+const MUTATING_COMMANDS = ['insertText', 'insertHorizontalRule', 'insertHTML']
+
+/**
+ * jsdom has no execCommand; this stand-in mimics the browser closely enough for the emitted value,
+ * and undo, to reflect the edit: every mutating command snapshots the content first, and 'undo'
+ * restores the last one, the way the real undo history the editor relies on would.
+ */
 const installExecCommand = (content: HTMLElement): jest.Mock => {
+  const history: string[] = []
+
   const execCommand = jest.fn((command: string, _ui?: boolean, argument?: string) => {
+    if (command === 'undo') {
+      const previous = history.pop()
+
+      if (previous !== undefined) {
+        content.innerHTML = previous
+      }
+
+      return true
+    }
+
+    if (MUTATING_COMMANDS.includes(command)) {
+      history.push(content.innerHTML)
+    }
+
     if (command === 'insertText' && argument !== undefined) {
       content.append(argument)
     }
 
     if (command === 'insertHorizontalRule') {
       content.append(content.ownerDocument.createElement('hr'))
+    }
+
+    if (command === 'insertHTML' && argument !== undefined) {
+      const range = content.ownerDocument.getSelection()?.getRangeAt(0)
+      const template = content.ownerDocument.createElement('template')
+      template.innerHTML = argument
+
+      range?.deleteContents()
+      range?.insertNode(template.content)
     }
 
     return true
@@ -43,12 +74,12 @@ const installClipboard = (readText: (() => Promise<string>) | undefined): void =
   })
 }
 
-const renderEditor = (): { onChange: jest.Mock, content: HTMLElement } => {
+const renderEditor = (value = '<p>kept</p>'): { onChange: jest.Mock, content: HTMLElement } => {
   const onChange = jest.fn()
   const { container } = render(
     <CustomWysiwygEditor
       onChange={ onChange }
-      value="<p>kept</p>"
+      value={ value }
     />
   )
   const content = container.querySelector('[contenteditable]')
@@ -120,5 +151,134 @@ describe('CustomWysiwygEditor horizontal rule', () => {
 
     expect(execCommand).toHaveBeenCalledWith('insertHorizontalRule', false, undefined)
     expect(onChange).toHaveBeenLastCalledWith('<p>kept</p><hr>')
+  })
+})
+
+describe('CustomWysiwygEditor existing link', () => {
+  /** Puts the caret into `node` and lets the selection hook notice, as a click in the browser would. */
+  const placeCaretIn = (node: Node): void => {
+    const range = document.createRange()
+    range.setStart(node, 1)
+    range.collapse(true)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    act(() => { document.dispatchEvent(new Event('selectionchange')) })
+  }
+
+  it('changes the link the caret sits in instead of inserting a second one', () => {
+    const { onChange, content } = renderEditor(
+      '<p>see <a href="https://old.example" pimcore_id="12" pimcore_type="document">orf</a></p>'
+    )
+    installExecCommand(content)
+    const anchor = content.querySelector('a')
+
+    if (anchor?.firstChild == null) {
+      throw new Error('link not rendered')
+    }
+
+    placeCaretIn(anchor.firstChild)
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' }))
+
+    const url = screen.getByPlaceholderText('wysiwyg-editor.link.url')
+    expect(url).toHaveValue('https://old.example')
+
+    fireEvent.change(url, { target: { value: 'https://new.example' } })
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.link.update' }))
+
+    // the element attributes would make Pimcore rewrite the URL back to that element on output
+    expect(onChange).toHaveBeenLastCalledWith('<p>see <a href="https://new.example">orf</a></p>')
+  })
+
+  it('undoes a link update back to the original address and Pimcore attributes', () => {
+    const { content } = renderEditor(
+      '<p>see <a href="https://old.example" pimcore_id="12" pimcore_type="document">orf</a></p>'
+    )
+    installExecCommand(content)
+    const anchor = content.querySelector('a')
+
+    if (anchor?.firstChild == null) {
+      throw new Error('link not rendered')
+    }
+
+    placeCaretIn(anchor.firstChild)
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' }))
+    fireEvent.change(screen.getByPlaceholderText('wysiwyg-editor.link.url'), { target: { value: 'https://new.example' } })
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.link.update' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+
+    const restored = content.querySelector('a')
+    expect(restored).toHaveAttribute('href', 'https://old.example')
+    expect(restored).toHaveAttribute('pimcore_id', '12')
+    expect(restored).toHaveAttribute('pimcore_type', 'document')
+  })
+
+  it('keeps an element link intact when its address is confirmed unchanged', () => {
+    const { onChange, content } = renderEditor(
+      '<p>see <a href="https://old.example" pimcore_id="12" pimcore_type="document">orf</a></p>'
+    )
+    installExecCommand(content)
+    const anchor = content.querySelector('a')
+
+    if (anchor?.firstChild == null) {
+      throw new Error('link not rendered')
+    }
+
+    placeCaretIn(anchor.firstChild)
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' }))
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.link.update' }))
+
+    // the reference to the element is what Pimcore tracks; confirming the address must not lose it
+    expect(content.querySelector('a')).toHaveAttribute('pimcore_id', '12')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('does not take a caret placed just before a link for a caret inside it', () => {
+    const { content } = renderEditor('<p><a href="https://old.example">orf</a> and more</p>')
+    installExecCommand(content)
+    const paragraph = content.querySelector('p')
+
+    if (paragraph == null) {
+      throw new Error('content not rendered')
+    }
+
+    // offset 0 of the paragraph: before its first child, which is the link
+    const range = document.createRange()
+    range.setStart(paragraph, 0)
+    range.collapse(true)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    act(() => { document.dispatchEvent(new Event('selectionchange')) })
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' }))
+
+    expect(screen.getByPlaceholderText('wysiwyg-editor.link.url')).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'wysiwyg-editor.link.insert' })).toBeInTheDocument()
+  })
+
+  it('treats a selection that runs out of the link as new text to link, not as that link', () => {
+    const { content } = renderEditor('<p><a href="https://old.example">orf</a> and more</p>')
+    installExecCommand(content)
+    const anchorText = content.querySelector('a')?.firstChild
+    const trailingText = content.querySelector('p')?.lastChild
+
+    if (anchorText == null || trailingText == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(anchorText, 1)
+    range.setEnd(trailingText, 4)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    act(() => { document.dispatchEvent(new Event('selectionchange')) })
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' }))
+
+    expect(screen.getByPlaceholderText('wysiwyg-editor.link.url')).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'wysiwyg-editor.link.insert' })).toBeInTheDocument()
   })
 })

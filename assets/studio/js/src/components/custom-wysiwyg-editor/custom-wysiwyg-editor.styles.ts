@@ -48,6 +48,18 @@ export const useStyles = createStyles(({ token }) => {
       backgroundColor: token.colorBorderSecondary
     },
 
+    linkPopover: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      minWidth: '240px'
+    },
+
+    linkPopoverActions: {
+      display: 'flex',
+      justifyContent: 'flex-end'
+    },
+
     content: {
       minHeight: '120px',
       padding: '8px 12px',

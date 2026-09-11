@@ -20,6 +20,7 @@ import { EditorToolbar } from './editor-toolbar'
 import { CodeViewModal } from './code-view-modal'
 import {
   INLINE_MARKS,
+  findEnclosingLink,
   findInlineMark,
   findListItem,
   resolveSelectionStartNode,
@@ -416,6 +417,22 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       return !range.collapsed && content.contains(range.commonAncestorContainer)
     }
 
+    /** The link the selection sits in, if any; see `findEnclosingLink` for what counts as "in". */
+    const getCurrentLink = (): HTMLElement | null => {
+      const content = contentRef.current
+      const selection = content?.ownerDocument.defaultView?.getSelection()
+
+      if (isNil(content) || isNil(selection) || selection.rangeCount === 0) {
+        return null
+      }
+
+      const range = selection.getRangeAt(0)
+
+      return content.contains(range.commonAncestorContainer)
+        ? findEnclosingLink(content, range)
+        : null
+    }
+
     const handleInsertLink = (url: string, text: string): void => {
       if (!isEditable) {
         return
@@ -426,6 +443,29 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       const doc = contentRef.current?.ownerDocument
 
       if (isNil(doc)) {
+        return
+      }
+
+      const link = getCurrentLink()
+
+      if (!isNil(link)) {
+        // confirming the address as it is must not touch the link: the element attributes below
+        // are the reference Pimcore tracks, and rewriting the tag would drop them for nothing
+        if (url === (link.getAttribute('href') ?? '')) {
+          return
+        }
+
+        // Change the link in place rather than nesting a new one inside it. The element attributes
+        // have to go with the old address: Pimcore rewrites the href of a tag carrying them back to
+        // that element's path on output, which would silently undo the change.
+        mutateWithHistory(link, (draft) => {
+          draft.setAttribute('href', url)
+          draft.removeAttribute('pimcore_id')
+          draft.removeAttribute('pimcore_type')
+        })
+        emitChange()
+        refreshFormatState()
+
         return
       }
 

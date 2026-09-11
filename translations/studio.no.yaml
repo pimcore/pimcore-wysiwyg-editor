@@ -24,6 +24,7 @@ wysiwyg-editor.block.heading-6: Overskrift 6
 wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Lenketekst (valgfritt)
 wysiwyg-editor.link.insert: Sett inn
+wysiwyg-editor.link.update: Oppdater
 wysiwyg-editor.code-view.title: Rediger HTML-kilde
 wysiwyg-editor.code-view.apply: Bruk
 wysiwyg-editor.code-view.cancel: Avbryt

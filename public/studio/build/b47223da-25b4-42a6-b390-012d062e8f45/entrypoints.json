@@ -1,0 +1,34 @@
+{
+  "entrypoints": {
+    "main": {
+      "js": [
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/858.f9375063.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/892.a1264479.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/123.f60691b9.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/668.288db39c.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/473.be0f4c89.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/109.1ccb9f43.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/main.a9aa3412.js"
+      ],
+      "css": []
+    },
+    "pimcore_wysiwyg_editor_bundle": {
+      "js": [
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/858.f9375063.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/892.a1264479.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/123.f60691b9.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/__federation_expose_plugins.8c178345.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/668.288db39c.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/async/473.be0f4c89.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/static/js/remoteEntry.js"
+      ],
+      "css": []
+    },
+    "exposeRemote": {
+      "js": [
+        "/bundles/pimcorewysiwygeditor/studio/build/b47223da-25b4-42a6-b390-012d062e8f45/exposeRemote.js"
+      ],
+      "css": []
+    }
+  }
+}

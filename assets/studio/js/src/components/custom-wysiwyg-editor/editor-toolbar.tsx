@@ -8,8 +8,8 @@
  *  @license    http://www.pimcore.org/license     GPLv3
  */
 
-import React, { useState } from 'react'
-import { Button, Input, Popover, Select, Space, Tooltip } from 'antd'
+import React, { useEffect, useState } from 'react'
+import { Button, Input, Popover, Select, Tooltip } from 'antd'
 import { useTranslation } from '@pimcore/studio-ui-bundle/app'
 import { useStyles } from './custom-wysiwyg-editor.styles'
 import { type FormatState, type InlineMark } from './use-editor-selection'
@@ -67,6 +67,18 @@ export const EditorToolbar = ({
   const { styles, cx } = useStyles()
   const [linkUrl, setLinkUrl] = useState('')
   const [linkText, setLinkText] = useState('')
+
+  // the caret sits in a link, so the popover changes that link rather than adding one
+  const editsLink = formatState.linkUrl !== undefined
+
+  // the fields start from the link under the caret each time the popover opens, otherwise a link
+  // could only be changed by retyping its address in the source view
+  useEffect(() => {
+    if (linkPopoverOpen) {
+      setLinkUrl(formatState.linkUrl ?? '')
+      setLinkText('')
+    }
+  }, [linkPopoverOpen, formatState.linkUrl])
 
   // keep the contentEditable selection alive while clicking toolbar controls
   const preventFocusSteal = (event: React.MouseEvent): void => {
@@ -161,34 +173,37 @@ export const EditorToolbar = ({
           // The popover renders in a portal, but React still bubbles its events through the React
           // tree - so without this the toolbar's preventDefault below reaches these inputs and they
           // can never take focus, leaving the fields impossible to type into.
-          <div onMouseDown={ (event) => { event.stopPropagation() } }>
-            <Space direction="vertical">
+          <div
+            className={ styles.linkPopover }
+            onMouseDown={ (event) => { event.stopPropagation() } }
+          >
+            <Input
+              autoFocus
+              onChange={ (event) => { setLinkUrl(event.target.value) } }
+              onPressEnter={ handleInsertLink }
+              placeholder={ t('wysiwyg-editor.link.url') }
+              size="small"
+              value={ linkUrl }
+            />
+            { !formatState.hasSelection && !editsLink && (
               <Input
-                autoFocus
-                onChange={ (event) => { setLinkUrl(event.target.value) } }
+                onChange={ (event) => { setLinkText(event.target.value) } }
                 onPressEnter={ handleInsertLink }
-                placeholder={ t('wysiwyg-editor.link.url') }
+                placeholder={ t('wysiwyg-editor.link.text') }
                 size="small"
-                value={ linkUrl }
+                value={ linkText }
               />
-              { !formatState.hasSelection && (
-                <Input
-                  onChange={ (event) => { setLinkText(event.target.value) } }
-                  onPressEnter={ handleInsertLink }
-                  placeholder={ t('wysiwyg-editor.link.text') }
-                  size="small"
-                  value={ linkText }
-                />
-              ) }
+            ) }
+            <div className={ styles.linkPopoverActions }>
               <Button
                 disabled={ linkUrl.trim() === '' }
                 onClick={ handleInsertLink }
                 size="small"
                 type="primary"
               >
-                { t('wysiwyg-editor.link.insert') }
+                { t(editsLink ? 'wysiwyg-editor.link.update' : 'wysiwyg-editor.link.insert') }
               </Button>
-            </Space>
+            </div>
           </div>
         }
         onOpenChange={ onLinkPopoverOpenChange }
@@ -198,6 +213,8 @@ export const EditorToolbar = ({
         <Tooltip title={ t('wysiwyg-editor.toolbar.link') }>
           <Button
             aria-label={ t('wysiwyg-editor.toolbar.link') }
+            aria-pressed={ editsLink }
+            className={ cx(editsLink && styles.toolbarButtonActive) }
             icon={ <LinkIcon /> }
             size="small"
             type="text"

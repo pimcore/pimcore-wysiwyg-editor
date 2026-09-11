@@ -25,6 +25,11 @@ export interface FormatState {
   canOutdent: boolean
   /** text is selected, so a link can take it as its label */
   hasSelection: boolean
+  /**
+   * The `href` of the link the caret sits in, so the link popover can edit it instead of adding a
+   * second link. An empty string is a link without an address; `undefined` is no link at all.
+   */
+  linkUrl?: string
 }
 
 export interface EditorSelection {
@@ -42,7 +47,8 @@ const EMPTY_FORMAT_STATE: FormatState = {
   block: undefined,
   canIndent: false,
   canOutdent: false,
-  hasSelection: false
+  hasSelection: false,
+  linkUrl: undefined
 }
 
 export type InlineMark = 'bold' | 'italic'
@@ -129,6 +135,23 @@ export const findInlineMark = (root: HTMLElement, node: Node, mark: InlineMark):
 export const findListItem = (root: HTMLElement, node: Node): HTMLElement | null =>
   findAncestor(root, node, (element) => element.nodeName === 'LI')
 
+/**
+ * The link the selection sits in, if any. A selection that starts in a link but runs past it is
+ * not "in" that link: the user is picking text to link, so this returns null and the range is
+ * treated as new text to link rather than as an edit of the first link.
+ */
+export const findEnclosingLink = (root: HTMLElement, range: Range): HTMLElement | null => {
+  // the start container itself, not the child at its offset: a caret placed just before a link
+  // sits at the parent's offset of that link, and resolving to the child would put it inside
+  const link = findAncestor(root, range.startContainer, (element) => element.nodeName === 'A')
+
+  if (isNil(link) || range.collapsed) {
+    return link
+  }
+
+  return link.contains(range.endContainer) ? link : null
+}
+
 export const resolveSelectionStartNode = resolveStartNode
 
 /**
@@ -186,6 +209,7 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
     const block = queryBlockTag(doc)
     const startNode = resolveStartNode(range)
     const listItem = findListItem(content, startNode)
+    const link = findEnclosingLink(content, range)
 
     setFormatState({
       bold: !isNil(findInlineMark(content, startNode, 'bold')),
@@ -196,7 +220,8 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
       block,
       canIndent: !isNil(listItem) && canNestItem(listItem),
       canOutdent: !isNil(listItem) && isNestedItem(listItem),
-      hasSelection: !range.collapsed
+      hasSelection: !range.collapsed,
+      linkUrl: isNil(link) ? undefined : link.getAttribute('href') ?? ''
     })
   }, [contentRef, getSelection])
 
