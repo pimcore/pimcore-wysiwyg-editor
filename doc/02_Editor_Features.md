@@ -16,7 +16,7 @@ link popover, the code view) is open.
 | Bold / Italic | Toggles on the selection. A button lights up when the caret sits in bold or italic text, including inside a heading, without reporting a heading itself as bold. |
 | Bulleted list / Numbered list | Toggles the current block into a list, or back to a paragraph. |
 | Indent / Outdent | Nests the current list item under the one before it, or lifts it back out. Only available inside a list, and only where a preceding (indent) or a nesting (outdent) item exists. |
-| Blockquote | Toggles the current block into a `<blockquote>`. |
+| Blockquote | Applies blockquote formatting to the current block. Unlike the list buttons, this does not toggle off again on a second click. |
 | Horizontal rule | Inserts a rule at the caret. |
 | Insert link | Opens a popover for a URL, described below. |
 | Remove formatting | Clears inline formatting from the selection. |
@@ -44,8 +44,9 @@ the drop position:
   becomes a link, using the current selection as its label if there is one.
 - An **asset** that is not an image, or a **data object**, likewise becomes a link.
 - An **image asset**, dropped with nothing selected, is inserted as the image itself rather
-  than a link to it. An image already small enough to display at full size keeps its original
-  file; a larger one gets a thumbnail sized to fit the editor.
+  than a link to it. Its original file is kept only when it is narrower than 600px and in a
+  format a browser displays directly (JPEG, GIF, PNG, WebP or AVIF); any other image, or one
+  600px or wider, gets a JPEG thumbnail generated at up to 600px wide instead.
 
 ## Element links and images
 
