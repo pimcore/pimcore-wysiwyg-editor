@@ -1,22 +1,28 @@
-# Installation of the xTemplate Bundlex
+---
+title: Installation
+---
+
+# Installation
 
 :::info
 
- This bundle is only supported on Pimcore Core Framework 11.
+This bundle requires Pimcore Platform version 2026.2 or later (`pimcore/pimcore` ^2026.1, `pimcore/studio-ui-bundle` ^2026.2) and Pimcore Studio.
 
 :::
 
- ## Bundle Installation
+## Bundle Installation
 
-To install the xTemplate Bundlex, follow the three steps below:
+To install the Pimcore WYSIWYG Editor bundle, follow the three steps below:
 
-1) Install the required dependencies:
+1) Install the required dependency:
 
 ```bash
-composer require pimcore/x-template-name-bundle-x
+composer require pimcore/pimcore-wysiwyg-editor
 ```
 
-2) Make sure the bundle is enabled in the `config/bundles.php` file. The following lines should be added:
+2) Make sure the bundle is enabled in the `config/bundles.php` file. The following line should
+   be added:
+
 ```php
 use Pimcore\Bundle\WysiwygEditor\PimcoreWysiwygEditor;
 // ...
@@ -24,7 +30,7 @@ return [
     // ...
     PimcoreWysiwygEditor::class => ['all' => true],
     // ...
-];  
+];
 ```
 
 3) Install the bundle:
@@ -32,3 +38,9 @@ return [
 ```bash
 bin/console pimcore:bundle:install PimcoreWysiwygEditor
 ```
+
+Once installed, the bundle replaces the wysiwyg field's editor everywhere Pimcore Studio
+renders one — document editables, data object fields, translations, and the class editor's
+default-value preview. No further configuration is needed, and no other wysiwyg bundle
+(for example a TinyMCE bundle) should be active at the same time, since both would try to
+render the same field.
