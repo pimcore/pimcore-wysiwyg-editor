@@ -168,6 +168,50 @@ describe('CustomWysiwygEditor existing link', () => {
     expect(onChange).toHaveBeenLastCalledWith('<p>see <a href="https://new.example">orf</a></p>')
   })
 
+  it('keeps an element link intact when its address is confirmed unchanged', () => {
+    const { onChange, content } = renderEditor(
+      '<p>see <a href="https://old.example" pimcore_id="12" pimcore_type="document">orf</a></p>'
+    )
+    installExecCommand(content)
+    const anchor = content.querySelector('a')
+
+    if (anchor?.firstChild == null) {
+      throw new Error('link not rendered')
+    }
+
+    placeCaretIn(anchor.firstChild)
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' }))
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.link.update' }))
+
+    // the reference to the element is what Pimcore tracks; confirming the address must not lose it
+    expect(content.querySelector('a')).toHaveAttribute('pimcore_id', '12')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('does not take a caret placed just before a link for a caret inside it', () => {
+    const { content } = renderEditor('<p><a href="https://old.example">orf</a> and more</p>')
+    installExecCommand(content)
+    const paragraph = content.querySelector('p')
+
+    if (paragraph == null) {
+      throw new Error('content not rendered')
+    }
+
+    // offset 0 of the paragraph: before its first child, which is the link
+    const range = document.createRange()
+    range.setStart(paragraph, 0)
+    range.collapse(true)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    act(() => { document.dispatchEvent(new Event('selectionchange')) })
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' }))
+
+    expect(screen.getByPlaceholderText('wysiwyg-editor.link.url')).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'wysiwyg-editor.link.insert' })).toBeInTheDocument()
+  })
+
   it('treats a selection that runs out of the link as new text to link, not as that link', () => {
     const { content } = renderEditor('<p><a href="https://old.example">orf</a> and more</p>')
     installExecCommand(content)

@@ -449,6 +449,12 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       const link = getCurrentLink()
 
       if (!isNil(link)) {
+        // confirming the address as it is must not touch the link: the element attributes below
+        // are the reference Pimcore tracks, and rewriting the tag would drop them for nothing
+        if (url === (link.getAttribute('href') ?? '')) {
+          return
+        }
+
         // Change the link in place rather than nesting a new one inside it. The element attributes
         // have to go with the old address: Pimcore rewrites the href of a tag carrying them back to
         // that element's path on output, which would silently undo the change.

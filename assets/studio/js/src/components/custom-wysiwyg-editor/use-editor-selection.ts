@@ -141,7 +141,9 @@ export const findListItem = (root: HTMLElement, node: Node): HTMLElement | null 
  * treated as new text to link rather than as an edit of the first link.
  */
 export const findEnclosingLink = (root: HTMLElement, range: Range): HTMLElement | null => {
-  const link = findAncestor(root, resolveStartNode(range), (element) => element.nodeName === 'A')
+  // the start container itself, not the child at its offset: a caret placed just before a link
+  // sits at the parent's offset of that link, and resolving to the child would put it inside
+  const link = findAncestor(root, range.startContainer, (element) => element.nodeName === 'A')
 
   if (isNil(link) || range.collapsed) {
     return link
