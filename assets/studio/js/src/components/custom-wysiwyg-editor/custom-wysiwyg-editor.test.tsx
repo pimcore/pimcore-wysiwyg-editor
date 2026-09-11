@@ -28,6 +28,15 @@ const installExecCommand = (content: HTMLElement): jest.Mock => {
       content.append(content.ownerDocument.createElement('hr'))
     }
 
+    if (command === 'insertHTML' && argument !== undefined) {
+      const range = content.ownerDocument.getSelection()?.getRangeAt(0)
+      const template = content.ownerDocument.createElement('template')
+      template.innerHTML = argument
+
+      range?.deleteContents()
+      range?.insertNode(template.content)
+    }
+
     return true
   })
 
@@ -43,12 +52,12 @@ const installClipboard = (readText: (() => Promise<string>) | undefined): void =
   })
 }
 
-const renderEditor = (): { onChange: jest.Mock, content: HTMLElement } => {
+const renderEditor = (value = '<p>kept</p>'): { onChange: jest.Mock, content: HTMLElement } => {
   const onChange = jest.fn()
   const { container } = render(
     <CustomWysiwygEditor
       onChange={ onChange }
-      value="<p>kept</p>"
+      value={ value }
     />
   )
   const content = container.querySelector('[contenteditable]')
@@ -120,5 +129,42 @@ describe('CustomWysiwygEditor horizontal rule', () => {
 
     expect(execCommand).toHaveBeenCalledWith('insertHorizontalRule', false, undefined)
     expect(onChange).toHaveBeenLastCalledWith('<p>kept</p><hr>')
+  })
+})
+
+describe('CustomWysiwygEditor existing link', () => {
+  /** Puts the caret into `node` and lets the selection hook notice, as a click in the browser would. */
+  const placeCaretIn = (node: Node): void => {
+    const range = document.createRange()
+    range.setStart(node, 1)
+    range.collapse(true)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    act(() => { document.dispatchEvent(new Event('selectionchange')) })
+  }
+
+  it('changes the link the caret sits in instead of inserting a second one', () => {
+    const { onChange, content } = renderEditor(
+      '<p>see <a href="https://old.example" pimcore_id="12" pimcore_type="document">orf</a></p>'
+    )
+    installExecCommand(content)
+    const anchor = content.querySelector('a')
+
+    if (anchor?.firstChild == null) {
+      throw new Error('link not rendered')
+    }
+
+    placeCaretIn(anchor.firstChild)
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' }))
+
+    const url = screen.getByPlaceholderText('wysiwyg-editor.link.url')
+    expect(url).toHaveValue('https://old.example')
+
+    fireEvent.change(url, { target: { value: 'https://new.example' } })
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.link.update' }))
+
+    // the element attributes would make Pimcore rewrite the URL back to that element on output
+    expect(onChange).toHaveBeenLastCalledWith('<p>see <a href="https://new.example">orf</a></p>')
   })
 })

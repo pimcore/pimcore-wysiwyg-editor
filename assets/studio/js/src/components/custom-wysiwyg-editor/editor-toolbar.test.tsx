@@ -80,4 +80,51 @@ describe('EditorToolbar', () => {
 
     expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.horizontal-rule' })).not.toHaveAttribute('aria-pressed')
   })
+
+  describe('with the caret inside an existing link', () => {
+    const renderWithLink = (): EditorToolbarProps => renderToolbar({
+      linkPopoverOpen: true,
+      formatState: {
+        bold: false,
+        italic: false,
+        unorderedList: false,
+        orderedList: false,
+        blockquote: false,
+        canIndent: false,
+        canOutdent: false,
+        hasSelection: true,
+        linkUrl: 'https://old.example'
+      }
+    })
+
+    it('opens the popover with the current URL filled in', () => {
+      renderWithLink()
+
+      expect(screen.getByPlaceholderText('wysiwyg-editor.link.url')).toHaveValue('https://old.example')
+    })
+
+    it('offers to update rather than insert, and asks for no link text', () => {
+      renderWithLink()
+
+      expect(screen.getByRole('button', { name: 'wysiwyg-editor.link.update' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'wysiwyg-editor.link.insert' })).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('wysiwyg-editor.link.text')).not.toBeInTheDocument()
+    })
+
+    it('hands the changed URL back', () => {
+      const props = renderWithLink()
+
+      fireEvent.change(screen.getByPlaceholderText('wysiwyg-editor.link.url'), { target: { value: 'https://new.example' } })
+      fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.link.update' }))
+
+      expect(props.onInsertLink).toHaveBeenCalledWith('https://new.example', expect.any(String))
+    })
+  })
+
+  it('opens the popover empty when the caret is not in a link', () => {
+    renderToolbar({ linkPopoverOpen: true })
+
+    expect(screen.getByPlaceholderText('wysiwyg-editor.link.url')).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'wysiwyg-editor.link.insert' })).toBeInTheDocument()
+  })
 })
