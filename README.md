@@ -9,7 +9,8 @@ editor library involved.
 - Formatting: bold, italic, headings 1–6, bulleted and numbered lists with indent/outdent,
   blockquote, horizontal rule, remove formatting.
 - Links and images inserted by dragging a document, asset or object from the Studio element
-  tree, or by URL through the toolbar; an existing link can be edited in place.
+  tree; a link can also be typed in by URL through the toolbar, and an existing one edited
+  in place.
 - A code view to inspect and edit the raw HTML directly.
 - Paste as plain text, undo/redo, and full keyboard/focus behavior matching a native field.
 - Stores plain HTML — the field's value is exactly what a document or data object shows.

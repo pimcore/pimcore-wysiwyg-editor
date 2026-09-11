@@ -11,7 +11,7 @@ link popover, the code view) is open.
 
 | Control | What it does |
 |---|---|
-| Undo / Redo | The browser's own undo history; every edit the toolbar makes is a single undoable step. |
+| Undo / Redo | The browser's own undo history; every toolbar edit except applying the code view is a single undoable step. |
 | Format | A dropdown for the current block: Paragraph or Heading 1–6. |
 | Bold / Italic | Toggles on the selection. A button lights up when the caret sits in bold or italic text, including inside a heading, without reporting a heading itself as bold. |
 | Bulleted list / Numbered list | Toggles the current block into a list, or back to a paragraph. |
@@ -92,4 +92,6 @@ Pimcore's wysiwyg sanitizer and `Tool\Text::wysiwygText()`. Two consequences wor
 - Attributes and tags outside the sanitizer's allow list are removed as well; `pimcore_id` and
   `pimcore_type` are allowed, so element references survive.
 
-The code view edits the same HTML the field stores, so what you edit is what is saved.
+The code view edits the same HTML the field submits. For a data object field, what ends up
+stored is that HTML after the sanitizer and rewriting above have run, not necessarily
+byte-for-byte what was typed.

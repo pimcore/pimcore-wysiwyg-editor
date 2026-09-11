@@ -6,7 +6,7 @@ title: Installation
 
 :::info
 
-This bundle is supported since Pimcore Platform version 2026, requiring Pimcore Studio.
+This bundle requires Pimcore Platform version 2026.2 or later (`pimcore/pimcore` ^2026.1, `pimcore/studio-ui-bundle` ^2026.2) and Pimcore Studio.
 
 :::
 
