@@ -103,6 +103,12 @@ describe('EditorToolbar', () => {
       expect(screen.getByPlaceholderText('wysiwyg-editor.link.url')).toHaveValue('https://old.example')
     })
 
+    it('exposes the active state to assistive technology, like the other stateful controls', () => {
+      renderWithLink()
+
+      expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' })).toHaveAttribute('aria-pressed', 'true')
+    })
+
     it('offers to update rather than insert, and asks for no link text', () => {
       renderWithLink()
 
@@ -126,5 +132,11 @@ describe('EditorToolbar', () => {
 
     expect(screen.getByPlaceholderText('wysiwyg-editor.link.url')).toHaveValue('')
     expect(screen.getByRole('button', { name: 'wysiwyg-editor.link.insert' })).toBeInTheDocument()
+  })
+
+  it('reports the link button as not pressed when the caret is not in a link', () => {
+    renderToolbar()
+
+    expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' })).toHaveAttribute('aria-pressed', 'false')
   })
 })

@@ -213,6 +213,7 @@ export const EditorToolbar = ({
         <Tooltip title={ t('wysiwyg-editor.toolbar.link') }>
           <Button
             aria-label={ t('wysiwyg-editor.toolbar.link') }
+            aria-pressed={ editsLink }
             className={ cx(editsLink && styles.toolbarButtonActive) }
             icon={ <LinkIcon /> }
             size="small"
