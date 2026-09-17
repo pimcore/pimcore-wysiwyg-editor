@@ -1,0 +1,30 @@
+wysiwyg-editor.toolbar.block-format: Format
+wysiwyg-editor.toolbar.bold: Pogrubienie
+wysiwyg-editor.toolbar.italic: Kursywa
+wysiwyg-editor.toolbar.unordered-list: Lista wypunktowana
+wysiwyg-editor.toolbar.ordered-list: Lista numerowana
+wysiwyg-editor.toolbar.indent: Zwiększ wcięcie
+wysiwyg-editor.toolbar.outdent: Zmniejsz wcięcie
+wysiwyg-editor.toolbar.blockquote: Cytat blokowy
+wysiwyg-editor.toolbar.horizontal-rule: Linia pozioma
+wysiwyg-editor.toolbar.link: Wstaw link
+wysiwyg-editor.toolbar.remove-format: Usuń formatowanie
+wysiwyg-editor.toolbar.paste-plain-text: Wklej jako zwykły tekst
+wysiwyg-editor.toolbar.paste-plain-text-unavailable: Nie przyznano dostępu do schowka. Użyj Ctrl+Shift+V (⌘+Shift+V na Macu), aby wkleić jako zwykły tekst.
+wysiwyg-editor.toolbar.code-view: Widok kodu
+wysiwyg-editor.toolbar.undo: Cofnij
+wysiwyg-editor.toolbar.redo: Ponów
+wysiwyg-editor.block.paragraph: Akapit
+wysiwyg-editor.block.heading-1: Nagłówek 1
+wysiwyg-editor.block.heading-2: Nagłówek 2
+wysiwyg-editor.block.heading-3: Nagłówek 3
+wysiwyg-editor.block.heading-4: Nagłówek 4
+wysiwyg-editor.block.heading-5: Nagłówek 5
+wysiwyg-editor.block.heading-6: Nagłówek 6
+wysiwyg-editor.link.url: URL
+wysiwyg-editor.link.text: Tekst linku (opcjonalnie)
+wysiwyg-editor.link.insert: Wstaw
+wysiwyg-editor.link.update: Aktualizuj
+wysiwyg-editor.code-view.title: Edytuj kod źródłowy HTML
+wysiwyg-editor.code-view.apply: Zastosuj
+wysiwyg-editor.code-view.cancel: Anuluj
