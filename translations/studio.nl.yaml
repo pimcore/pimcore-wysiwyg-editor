@@ -1,0 +1,30 @@
+wysiwyg-editor.toolbar.block-format: Formaat
+wysiwyg-editor.toolbar.bold: Vet
+wysiwyg-editor.toolbar.italic: Cursief
+wysiwyg-editor.toolbar.unordered-list: Lijst met opsommingstekens
+wysiwyg-editor.toolbar.ordered-list: Genummerde lijst
+wysiwyg-editor.toolbar.indent: Inspringen
+wysiwyg-editor.toolbar.outdent: Uitspringen
+wysiwyg-editor.toolbar.blockquote: Blok-citaat
+wysiwyg-editor.toolbar.horizontal-rule: Horizontale lijn
+wysiwyg-editor.toolbar.link: Link invoegen
+wysiwyg-editor.toolbar.remove-format: Opmaak verwijderen
+wysiwyg-editor.toolbar.paste-plain-text: Plakken als platte tekst
+wysiwyg-editor.toolbar.paste-plain-text-unavailable: Toegang tot het klembord is niet toegestaan. Gebruik Ctrl+Shift+V (⌘+Shift+V op Mac) om als platte tekst te plakken.
+wysiwyg-editor.toolbar.code-view: Codeweergave
+wysiwyg-editor.toolbar.undo: Ongedaan maken
+wysiwyg-editor.toolbar.redo: Opnieuw uitvoeren
+wysiwyg-editor.block.paragraph: Alinea
+wysiwyg-editor.block.heading-1: Kop 1
+wysiwyg-editor.block.heading-2: Kop 2
+wysiwyg-editor.block.heading-3: Kop 3
+wysiwyg-editor.block.heading-4: Kop 4
+wysiwyg-editor.block.heading-5: Kop 5
+wysiwyg-editor.block.heading-6: Kop 6
+wysiwyg-editor.link.url: URL
+wysiwyg-editor.link.text: Linktekst (optioneel)
+wysiwyg-editor.link.insert: Invoegen
+wysiwyg-editor.link.update: Bijwerken
+wysiwyg-editor.code-view.title: HTML-broncode bewerken
+wysiwyg-editor.code-view.apply: Toepassen
+wysiwyg-editor.code-view.cancel: Annuleren
