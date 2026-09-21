@@ -881,3 +881,109 @@ describe('CustomWysiwygEditor typing after a fresh mark', () => {
     }
   })
 })
+
+describe('CustomWysiwygEditor commit granularity', () => {
+  const select = (content: HTMLElement, startSelector: string, startOffset: number, endSelector: string, endOffset: number): void => {
+    const startNode = content.querySelector(startSelector)?.firstChild
+    const endNode = content.querySelector(endSelector)?.firstChild
+
+    if (startNode == null || endNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(startNode, startOffset)
+    range.setEnd(endNode, endOffset)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  }
+
+  const committedHtml = (execCommand: jest.Mock): string[] =>
+    (execCommand.mock.calls as Array<[string, boolean?, string?]>)
+      .filter(([command]) => command === 'insertHTML')
+      .map(([, , argument]) => argument ?? '')
+
+  // Writing the whole field back is what the browser mangles: a field beginning with a heading or
+  // a list keeps that block as a shell and pulls everything after it inside. jsdom does not do
+  // that, so these pin down what gets written back rather than the mangled result.
+  it('writes back only the block the selection sits in, never the field around it', () => {
+    const { onChange, content } = renderEditor('<h1>Test</h1><div>Test</div><div>Before Bold After</div>')
+    const execCommand = installExecCommand(content)
+    select(content, 'div:last-child', 7, 'div:last-child', 11)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<h1>Test</h1><div>Test</div><div>Before <b>Bold</b> After</div>')
+    expect(committedHtml(execCommand)).toEqual(['Before <b>Bold</b> After'])
+  })
+
+  it('writes each paragraph back on its own when the selection spans two of them', () => {
+    const { onChange, content } = renderEditor('<h1>Title</h1><p>First</p><p>Second</p>')
+    const execCommand = installExecCommand(content)
+    select(content, 'p', 0, 'p:last-child', 6)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<h1>Title</h1><p><b>First</b></p><p><b>Second</b></p>')
+    // last paragraph first, so the earlier one's position is still what it was when measured
+    expect(committedHtml(execCommand)).toEqual(['<b>Second</b>', '<b>First</b>'])
+  })
+
+  it('writes a run of inline nodes after a block back on its own', () => {
+    const { onChange, content } = renderEditor('<h1>Title</h1>Before Bold After')
+    const execCommand = installExecCommand(content)
+    const textNode = content.querySelector('h1')?.nextSibling
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 7)
+    range.setEnd(textNode, 11)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<h1>Title</h1>Before <b>Bold</b> After')
+    expect(committedHtml(execCommand)).toEqual(['Before <b>Bold</b> After'])
+  })
+
+  it('writes the whole field back when it holds no block at all', () => {
+    const { onChange, content } = renderEditor('Before Bold After')
+    const execCommand = installExecCommand(content)
+    const textNode = content.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 7)
+    range.setEnd(textNode, 11)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('Before <b>Bold</b> After')
+    expect(committedHtml(execCommand)).toEqual(['Before <b>Bold</b> After'])
+  })
+
+  it('keeps the caret after the last bolded word when the selection spans blocks', () => {
+    const { content } = renderEditor('<h1>Title</h1><p>First</p><p>Second</p>')
+    installExecCommand(content)
+    select(content, 'p', 0, 'p:last-child', 6)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    const after = document.getSelection()?.getRangeAt(0)
+    const lastBold = content.querySelectorAll('b')[1]
+
+    expect(after?.collapsed).toBe(true)
+    expect(after?.startContainer).toBe(lastBold.parentNode)
+    expect(after?.startOffset).toBe(1)
+  })
+})
