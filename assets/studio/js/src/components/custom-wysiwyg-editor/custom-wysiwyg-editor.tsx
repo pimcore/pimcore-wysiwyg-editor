@@ -24,6 +24,7 @@ import {
   findInlineMark,
   findListItem,
   isBoldWeight,
+  queryState,
   resolveSelectionStartNode,
   useEditorSelection,
   type InlineMark
@@ -95,26 +96,37 @@ const INLINE_TAGS = new Set([
 const isBlockElement = (node: Node): node is HTMLElement =>
   node instanceof HTMLElement && !INLINE_TAGS.has(node.tagName)
 
-interface CommitUnit {
-  /** The block to replace the contents of, or null for a run of inline nodes directly in the field. */
-  block: HTMLElement | null
-  /** The child-index span of the field an inline run occupies. */
+interface FieldSpan {
+  container: HTMLElement
   from: number
   to: number
 }
 
 /**
- * The top-level children of `root` that `range` reaches, one unit per block and one per run of
- * inline nodes sitting between blocks (or making up the whole field). Each is committed on its
- * own — see {@link commitSpan} for why a replacement must not begin with a block.
+ * Whether `element` can be written back as one piece: its contents begin with inline nodes, or it
+ * is empty, so it holds no block of its own for the browser to turn into a shell.
  */
-const topLevelUnits = (root: HTMLElement, range: Range): CommitUnit[] => {
-  const units: CommitUnit[] = []
+const beginsInline = (element: HTMLElement): boolean =>
+  isNil(element.firstChild) || !isBlockElement(element.firstChild)
+
+/**
+ * The child-index spans of `root` (or of blocks nested in it) to write back for a change within
+ * `range` — see {@link commitSpan} for why a span must not begin with a block. A container that
+ * begins inline goes back whole. Otherwise each block the range reaches is taken on its own,
+ * descending into it as long as it begins with a block itself, and each run of inline nodes
+ * between blocks is one span of its parent.
+ */
+const spansToCommit = (root: HTMLElement, range: Range): FieldSpan[] => {
+  if (beginsInline(root)) {
+    return [{ container: root, from: 0, to: root.childNodes.length }]
+  }
+
+  const spans: FieldSpan[] = []
   let run: { from: number, to: number, reached: boolean } | null = null
 
   const closeRun = (): void => {
     if (!isNil(run) && run.reached) {
-      units.push({ block: null, from: run.from, to: run.to })
+      spans.push({ container: root, from: run.from, to: run.to })
     }
 
     run = null
@@ -125,7 +137,7 @@ const topLevelUnits = (root: HTMLElement, range: Range): CommitUnit[] => {
       closeRun()
 
       if (range.intersectsNode(child)) {
-        units.push({ block: child, from: index, to: index + 1 })
+        spans.push(...spansToCommit(child, range))
       }
 
       return
@@ -141,7 +153,7 @@ const topLevelUnits = (root: HTMLElement, range: Range): CommitUnit[] => {
 
   closeRun()
 
-  return units
+  return spans
 }
 
 /** Whether what surrounds `element` renders `mark` by itself — a heading's own weight, say. */
@@ -619,21 +631,21 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * inside — a field's second paragraph ends up nested in its first heading. A range that
      * starts inside a block, or with inline nodes, is written back as given. Replacing one
      * block's own contents, or one run of inline nodes between blocks, therefore never begins with
-     * a block. It also keeps the container as a live reference, so a path worked out against the
-     * clone resolves against it once committed. One reshaping remains, and is left as it is: an
-     * attribute-less div wrapping blocks at the very end of the field is dropped as redundant by
-     * the browser, its children staying in place — the wrapper it uses as its own paragraph
+     * a block. It also keeps the container as a live reference, so a position worked out against
+     * the clone resolves against it once committed. One reshaping remains, and is left as it is:
+     * an attribute-less div wrapping blocks at the very end of the field is dropped as redundant
+     * by the browser, its children staying in place — the wrapper it uses as its own paragraph
      * separator, and nothing a reader can see.
      *
-     * `mutate` gets a clone of the whole container and returns the path, within that clone, of a
-     * node to find again once committed — or nothing. Returns that node, resolved against the
-     * live container, if the path still leads to one.
+     * `mutate` gets a clone of the span alone — nothing outside it is there to be moved, so the
+     * span's own indices cannot drift — and may return a node in that clone to find again once
+     * committed. Returns that node, resolved against the live container, if it can still be found.
      */
     const commitSpan = (
       container: HTMLElement,
       from: number,
       to: number,
-      mutate: (draft: HTMLElement) => number[] | undefined
+      mutate: (draft: HTMLElement) => Node | undefined
     ): Node | null => {
       const content = contentRef.current
       const selection = content?.ownerDocument.defaultView?.getSelection()
@@ -643,20 +655,14 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       }
 
       const doc = content.ownerDocument
-      const draft = container.cloneNode(true) as HTMLElement
-      // the node right after the span: the mutation can change how many nodes the span holds,
-      // while this one stays put and still marks where the span ends
-      const draftAfterSpan = draft.childNodes[to] ?? null
+      const draft = doc.createElement('div')
 
-      const caretAfterPath = mutate(draft)
-
-      const afterIndex = isNil(draftAfterSpan) ? -1 : Array.prototype.indexOf.call(draft.childNodes, draftAfterSpan)
-      const draftTo = afterIndex >= 0 ? afterIndex : draft.childNodes.length
-      const replacement = doc.createElement('div')
-
-      for (let index = from; index < draftTo; index++) {
-        replacement.appendChild(draft.childNodes[index].cloneNode(true))
+      for (let index = from; index < to; index++) {
+        draft.appendChild(container.childNodes[index].cloneNode(true))
       }
+
+      const anchor = mutate(draft)
+      const anchorPath = isNil(anchor) ? null : nodePath(draft, anchor)
 
       const range = doc.createRange()
 
@@ -664,15 +670,15 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       range.setEnd(container, to)
       selection.removeAllRanges()
       selection.addRange(range)
-      doc.execCommand('insertHTML', false, replacement.innerHTML)
+      doc.execCommand('insertHTML', false, draft.innerHTML)
 
-      if (isNil(caretAfterPath)) {
+      if (isNil(anchorPath) || anchorPath.length === 0) {
         return null
       }
 
-      // the path is worked out against the clone; should the commit above have reshaped
-      // anything on the way in, it may no longer lead anywhere
-      return nodeAtPath(container, caretAfterPath)
+      // the clone's children sit at `from` onwards in the container; should the commit above
+      // have reshaped anything on the way in, the path may no longer lead anywhere
+      return nodeAtPath(container, [anchorPath[0] + from, ...anchorPath.slice(1)])
     }
 
     interface UnitPlan {
@@ -690,20 +696,20 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * narrow, spans as the browser handles cleanly — see {@link commitSpan}.
      *
      * The deepest block holding both ends of the range is the container to work in (the field
-     * itself when there is none). Its children are then committed one unit at a time — a block by
-     * its own contents, a run of inline nodes between blocks by its child-index span — unless the
-     * container begins with inline nodes: there is no block for the browser to make a shell of
-     * then, and an inline run written back on its own picks up a stray <br> before the block that
-     * follows it, so the whole container's contents go back in one piece.
+     * itself when there is none); {@link spansToCommit} splits it into the spans to write back. A
+     * container beginning with inline nodes goes back whole: there is no block for the browser to
+     * make a shell of, and an inline run written back on its own picks up a stray <br> before the
+     * block that follows it.
      *
-     * `mutate` runs once per unit on a clone of that unit's container, with the range clipped to
-     * the unit and located in the clone, and returns the path of the node to leave the caret
-     * after, if any. Returns that node for the last unit in document order — the caret ends up
-     * after it, or at the end of that unit when it yielded none.
+     * `mutate` runs once per span on a clone of that span, with the range clipped to it and
+     * located in the clone, and `locate` finding the clone of any live node within the span. It
+     * returns the node to leave the caret after, if any. Returns that node for the last span in
+     * document order — the caret ends up after it, or at the end of that span when it yielded
+     * none.
      */
     const commitAround = (
       range: Range,
-      mutate: (draft: HTMLElement, draftRange: Range, container: HTMLElement) => number[] | undefined
+      mutate: (draft: HTMLElement, draftRange: Range, locate: (node: Node) => Node | null) => Node | undefined
     ): Node | null => {
       const content = contentRef.current
       const selection = content?.ownerDocument.defaultView?.getSelection()
@@ -720,8 +726,6 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       const startLeaf = descendForward(startContainer, startOffset)
       const endLeaf = descendBackward(endContainer, endOffset)
       const container = closestSharedBlock(startLeaf.node, endLeaf.node, content) ?? content
-      const firstChild: ChildNode | null = container.firstChild
-      const wholeContainer = isNil(firstChild) || !isBlockElement(firstChild)
 
       // the range clipped to a span and located as paths — worked out for every unit before
       // anything is committed, since writing one span back detaches the nodes the range's
@@ -745,27 +749,29 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         }
       }
 
-      const plans = wholeContainer
-        ? [plan(container, 0, container.childNodes.length)]
-        : topLevelUnits(container, range).map((unit) => isNil(unit.block)
-          ? plan(container, unit.from, unit.to)
-          : plan(unit.block, 0, unit.block.childNodes.length))
+      const plans = spansToCommit(container, range).map((span) => plan(span.container, span.from, span.to))
 
       const commitPlan = (unit: UnitPlan): Node | null =>
         commitSpan(unit.container, unit.from, unit.to, (draft) => {
-          const draftStart = nodeAtPath(draft, unit.startPath)
-          const draftEnd = nodeAtPath(draft, unit.endPath)
+          // a position in the container, as the clone of just its span sees it: the span's first
+          // child is the clone's first, and the container itself stands in for the clone
+          const inDraft = (path: number[], offset: number): { node: Node | null, offset: number } => path.length === 0
+            ? { node: draft, offset: offset - unit.from }
+            : { node: nodeAtPath(draft, [path[0] - unit.from, ...path.slice(1)]), offset }
+          const locate = (node: Node): Node | null => inDraft(nodePath(unit.container, node), 0).node
+          const start = inDraft(unit.startPath, unit.startOffset)
+          const end = inDraft(unit.endPath, unit.endOffset)
 
-          if (isNil(draftStart) || isNil(draftEnd)) {
+          if (isNil(start.node) || isNil(end.node)) {
             return undefined
           }
 
           const draftRange = doc.createRange()
 
-          draftRange.setStart(draftStart, unit.startOffset)
-          draftRange.setEnd(draftEnd, unit.endOffset)
+          draftRange.setStart(start.node, start.offset)
+          draftRange.setEnd(end.node, end.offset)
 
-          return mutate(draft, draftRange, unit.container)
+          return mutate(draft, draftRange, locate)
         })
 
       // last to first: writing an inline run back can change how many nodes it holds, which
@@ -856,8 +862,8 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         const markRange = doc.createRange()
 
         markRange.selectNode(existingMark)
-        commitAround(markRange, (draft, _draftRange, container) => {
-          const draftMark = nodeAtPath(draft, nodePath(container, existingMark))
+        commitAround(markRange, (_draft, _draftRange, locate) => {
+          const draftMark = locate(existingMark)
 
           if (!(draftMark instanceof HTMLElement)) {
             return undefined
@@ -867,7 +873,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
 
           draftMark.replaceWith(...Array.from(draftMark.childNodes))
 
-          return isNil(last) ? undefined : nodePath(draft, last)
+          return last ?? undefined
         })
       } else if (range.collapsed) {
         // no selection to wrap — let the browser handle "type the next characters marked"
@@ -889,9 +895,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
           // in this same undoable step.
           normalizeNestedLists(draft)
 
-          // read after that repair, which moves nodes around: the wrapper itself is still the
-          // same element wherever it ended up, while a path taken earlier could point elsewhere
-          return isNil(wrapper) ? undefined : nodePath(draft, wrapper)
+          return wrapper ?? undefined
         })
 
         // To the browser's typing style, a caret directly after the new element is still inside
@@ -899,7 +903,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         // the same command the collapsed branch above uses to switch it on — unless the
         // surroundings render the mark by themselves, a heading's weight say, where "off" would
         // mean a span{font-weight:normal} around the next characters rather than plain text.
-        if (!isNil(wrapper) && doc.queryCommandState(mark) && !isMarkInherited(wrapper, mark)) {
+        if (!isNil(wrapper) && queryState(doc, mark) && !isMarkInherited(wrapper, mark)) {
           doc.execCommand(mark)
         }
       }

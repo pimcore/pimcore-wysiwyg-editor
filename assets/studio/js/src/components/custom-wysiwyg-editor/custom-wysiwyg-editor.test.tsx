@@ -1070,4 +1070,74 @@ describe('CustomWysiwygEditor commit granularity', () => {
     expect(after?.startContainer).toBe(emptyParagraph)
     expect(after?.startOffset).toBe(0)
   })
+
+  it('descends into a block that itself begins with a block, so no span written back starts with one', () => {
+    const { onChange, content } = renderEditor('<div><h1>Title</h1><p>Body</p></div><p>Next</p>')
+    const execCommand = installExecCommand(content)
+    select(content, 'div p', 0, 'div + p', 4)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<div><h1>Title</h1><p><b>Body</b></p></div><p><b>Next</b></p>')
+    expect(committedHtml(execCommand)).toEqual(['<b>Next</b>', '<b>Body</b>'])
+  })
+
+  it('is not thrown off by the list repair moving nodes in front of the span', () => {
+    // a paragraph the browser left a list in, kept because it has text of its own, followed by a
+    // run of inline text: repairing the whole field would lift the list out in front of the
+    // paragraph and shift everything after it by one
+    const { content } = renderEditor('Before Bold After')
+    const execCommand = installExecCommand(content)
+    const paragraph = document.createElement('p')
+    paragraph.append('keep')
+    const list = document.createElement('ul')
+    list.innerHTML = '<li>x</li>'
+    paragraph.appendChild(list)
+    content.insertBefore(paragraph, content.firstChild)
+    const textNode = content.lastChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 7)
+    range.setEnd(textNode, 11)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(committedHtml(execCommand)).toEqual(['Before <b>Bold</b> After'])
+    expect(content.innerHTML).toBe('<p>keep<ul><li>x</li></ul></p>Before <b>Bold</b> After')
+  })
+
+  it('takes a selection made of a whole paragraph element as that paragraph', () => {
+    const { onChange, content } = renderEditor('<p>One</p><p>Two</p>')
+    const execCommand = installExecCommand(content)
+    const second = content.querySelectorAll('p')[1]
+    const range = document.createRange()
+    range.selectNode(second)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p>One</p><p><b>Two</b></p>')
+    expect(committedHtml(execCommand)).toEqual(['<b>Two</b>'])
+  })
+
+  it('still emits the change when the browser cannot answer for the typing style', () => {
+    const { onChange, content } = renderEditor('<p>Before Bold After</p>')
+    installExecCommand(content)
+    Object.defineProperty(document, 'queryCommandState', {
+      value: () => { throw new Error('not supported') },
+      configurable: true
+    })
+    select(content, 'p', 7, 'p', 11)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p>Before <b>Bold</b> After</p>')
+  })
 })

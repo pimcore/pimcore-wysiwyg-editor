@@ -72,7 +72,7 @@ export const INLINE_MARKS: Record<InlineMark, InlineMarkDefinition> = {
   }
 }
 
-const queryState = (doc: Document, command: string): boolean => {
+export const queryState = (doc: Document, command: string): boolean => {
   try {
     return doc.queryCommandState(command)
   } catch {
