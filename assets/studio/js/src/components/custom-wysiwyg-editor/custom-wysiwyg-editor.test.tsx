@@ -428,4 +428,52 @@ describe('CustomWysiwygEditor bold on the field\'s entire content', () => {
 
     expect(onChange).toHaveBeenLastCalledWith('<p>some <b>TEXT</b> here</p>')
   })
+
+  it('preserves an existing nbsp when the selection boundary is a whole element, not a text offset', () => {
+    // the sibling text node is nbsp and nothing else, matching the shape that actually exercises
+    // the bug: a longer text node merely starting with nbsp was never at risk either way
+    const { onChange, content } = renderEditor('<p><a href="https://example.com">Link</a> </p>')
+    installExecCommand(content)
+    const anchor = content.querySelector('a')
+
+    if (anchor == null) {
+      throw new Error('link not rendered')
+    }
+
+    // selecting the whole <a> gives a range whose boundary is a child-node index into <p>, not a
+    // character offset into a text node
+    const range = document.createRange()
+    range.selectNode(anchor)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    // .innerHTML serializes the pre-existing nbsp character as the &nbsp; entity text
+    expect(onChange).toHaveBeenLastCalledWith('<p><b><a href="https://example.com">Link</a></b>&nbsp;</p>')
+  })
+
+  it("cleans up only the mark this operation inserted, not another one already carrying the same attribute", () => {
+    const { onChange, content } = renderEditor('<p><b data-wysiwyg-mark-target="stale">Old</b> TEXT more</p>')
+    installExecCommand(content)
+    const textNode = content.querySelector('p')?.lastChild
+
+    if (textNode?.nodeType !== Node.TEXT_NODE) {
+      throw new Error('content not rendered as expected')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 1)
+    range.setEnd(textNode, 5)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith(
+      '<p><b data-wysiwyg-mark-target="stale">Old</b> <b>TEXT</b> more</p>'
+    )
+  })
 })

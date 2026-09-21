@@ -53,8 +53,13 @@ type BoundaryChar = 'space' | 'nbsp' | 'other' | null
 /**
  * The character immediately on the given side of a range boundary, up to `root` — the position a
  * browser is protecting when it pads a boundary with &nbsp;. `null` means the boundary sits at the
- * true edge of the field, with nothing else there at all; `'other'` covers both an ordinary
- * character (no padding risk) and a sibling node one level up (out of scope for this check).
+ * true edge of the field, with nothing else there at all.
+ *
+ * A `Range` boundary is either a character offset into a text node, or a child-node index into an
+ * element — selecting a whole element (a dropped link, say) gives the latter. Either way, once
+ * the boundary's own container holds nothing further on this side, the search moves to whichever
+ * actual node sits next: the child living at that exact index for an element container, or a walk
+ * out through ancestors (never past `root`) for a text container that is otherwise exhausted.
  */
 const adjacentChar = (boundaryNode: Node, boundaryOffset: number, direction: 'before' | 'after', root: HTMLElement): BoundaryChar => {
   if (boundaryNode.nodeType === Node.TEXT_NODE) {
@@ -71,20 +76,55 @@ const adjacentChar = (boundaryNode: Node, boundaryOffset: number, direction: 'be
     }
   }
 
-  let node = boundaryNode
+  const siblingOf = (node: Node): Node | null =>
+    node === root ? null : (direction === 'before' ? node.previousSibling : node.nextSibling)
 
-  while (node !== root) {
-    if (!isNil(direction === 'before' ? node.previousSibling : node.nextSibling)) {
+  /** The next node to look at after `from`'s own position, walking up through ancestors (but
+   *  never past `root`) until one of them has a sibling on this side. */
+  const walkOut = (from: Node): Node | null => {
+    let current = from
+
+    while (isNil(siblingOf(current))) {
+      if (current === root) {
+        return null
+      }
+
+      const parent: Node | null = current.parentNode
+
+      if (isNil(parent)) {
+        return null
+      }
+
+      current = parent
+    }
+
+    return siblingOf(current)
+  }
+
+  let next: Node | null = boundaryNode.nodeType === Node.TEXT_NODE
+    ? walkOut(boundaryNode)
+    : (direction === 'before' ? boundaryNode.childNodes[boundaryOffset - 1] : boundaryNode.childNodes[boundaryOffset]) ?? walkOut(boundaryNode)
+
+  while (!isNil(next)) {
+    if (next.nodeType !== Node.TEXT_NODE) {
+      // an element sits right there — real content, not a whitespace-collapse risk
       return 'other'
     }
 
-    const parent: Node | null = node.parentNode
+    const text = next as Text
 
-    if (isNil(parent)) {
-      return null
+    if (text.length > 0) {
+      const char = direction === 'before' ? text.data[text.length - 1] : text.data[0]
+
+      if (char === ' ') {
+        return 'space'
+      }
+
+      return char === NBSP ? 'nbsp' : 'other'
     }
 
-    node = parent
+    // an empty text node holds nothing: keep walking past it
+    next = walkOut(next)
   }
 
   return null
@@ -380,14 +420,19 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         // again afterwards, since execCommand leaves no reference to what it inserted.
         const charBefore = adjacentChar(range.startContainer, range.startOffset, 'before', content)
         const charAfter = adjacentChar(range.endContainer, range.endOffset, 'after', content)
+
+        // a unique value per call: code view can persist arbitrary HTML, so a plain boolean marker
+        // could already exist elsewhere in the field and be picked up instead of what was just
+        // inserted here
         const markerAttribute = 'data-wysiwyg-mark-target'
+        const markerValue = `${Date.now()}-${Math.random().toString(36).slice(2)}`
         doc.execCommand(
           'insertHTML',
           false,
-          `<${INLINE_MARKS[mark].tag} ${markerAttribute}="">${draft.innerHTML}</${INLINE_MARKS[mark].tag}>`
+          `<${INLINE_MARKS[mark].tag} ${markerAttribute}="${markerValue}">${draft.innerHTML}</${INLINE_MARKS[mark].tag}>`
         )
 
-        const inserted = content.querySelector(`[${markerAttribute}]`)
+        const inserted = content.querySelector(`[${markerAttribute}="${markerValue}"]`)
 
         if (!isNil(inserted)) {
           restoreBoundaryChar(inserted, 'before', charBefore)
