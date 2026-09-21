@@ -70,8 +70,52 @@ const installExecCommand = (content: HTMLElement): jest.Mock => {
       const template = content.ownerDocument.createElement('template')
       template.innerHTML = argument
 
+      const boundaries = range === undefined
+        ? null
+        : {
+            beforeNode: range.startContainer,
+            beforeOffset: range.startOffset,
+            afterNode: range.endContainer,
+            afterOffset: range.endOffset
+          }
+
       range?.deleteContents()
       range?.insertNode(template.content)
+
+      // Reproduces what Chrome actually does, measured against it directly: replacing a
+      // selection promotes a plain space immediately beside the result to &nbsp;, to keep that
+      // position from collapsing against whatever was just inserted. Only ever the one character
+      // on each side, and only when the replaced range did not already cover it. Without this,
+      // nothing here would fail if the fix that avoids the behaviour were taken back out.
+      if (boundaries !== null) {
+        const promote = (node: Node, index: number): void => {
+          if (node.nodeType !== Node.TEXT_NODE) {
+            return
+          }
+
+          const text = node as Text
+          const at = index < 0 ? text.data.length + index : index
+
+          if (text.data[at] === ' ') {
+            text.data = text.data.slice(0, at) + '\u00a0' + text.data.slice(at + 1)
+          }
+        }
+
+        // the character just before where the replacement started, and just after where it ended
+        if (boundaries.beforeNode.nodeType === Node.TEXT_NODE && boundaries.beforeOffset === 0) {
+          const previous = boundaries.beforeNode.previousSibling
+
+          if (previous !== null) {
+            promote(previous, -1)
+          }
+        } else if (boundaries.beforeNode.nodeType === Node.TEXT_NODE) {
+          promote(boundaries.beforeNode, boundaries.beforeOffset - 1)
+        }
+
+        if (boundaries.afterNode.nodeType === Node.TEXT_NODE) {
+          promote(boundaries.afterNode, boundaries.afterOffset)
+        }
+      }
     }
 
     return true
@@ -581,6 +625,78 @@ describe('CustomWysiwygEditor bold next to whitespace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
 
     expect(onChange).toHaveBeenLastCalledWith('<ul><li><b>one</b></li><li><b>two</b></li></ul>')
+  })
+
+  it('does nothing, and does not throw, when the selection holds no text to format', () => {
+    const { onChange, content } = renderEditor('<p></p>')
+    installExecCommand(content)
+    const paragraph = content.querySelector('p')
+
+    if (paragraph == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.selectNodeContents(paragraph)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    expect(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+    }).not.toThrow()
+
+    expect(content.querySelector('b')).toBeNull()
+  })
+
+  it('does not throw when a void element is all that is selected', () => {
+    const { content } = renderEditor('<p>text</p><hr>')
+    installExecCommand(content)
+    const rule = content.querySelector('hr')
+
+    if (rule == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.selectNode(rule)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    expect(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+    }).not.toThrow()
+  })
+
+  it('leaves a list the browser left inside a paragraph intact when bolding elsewhere', () => {
+    // the shape execCommand('insertUnorderedList') produces from several paragraphs at once;
+    // committing the whole field would orphan the list items were the draft not repaired first
+    const { onChange, content } = renderEditor('<p><ul><li>one</li><li>two</li></ul></p><p>after</p>')
+    installExecCommand(content)
+    const lastParagraph = content.querySelectorAll('p')[content.querySelectorAll('p').length - 1]
+    const afterText = lastParagraph?.firstChild
+
+    if (afterText == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(afterText, 0)
+    range.setEnd(afterText, 5)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    const emitted = (onChange.mock.calls[onChange.mock.calls.length - 1] as [string])[0]
+
+    // both items still inside the list, none orphaned next to it
+    expect(emitted).toContain('<li>one</li>')
+    expect(emitted).toContain('<li>two</li>')
+    expect(emitted).toContain('<b>after</b>')
+    expect(emitted.match(/<li>/g)).toHaveLength(2)
   })
 
   it('keeps a selection crossing two table cells inside each cell', () => {

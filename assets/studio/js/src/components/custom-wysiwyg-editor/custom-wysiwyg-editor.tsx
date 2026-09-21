@@ -178,10 +178,12 @@ const closestSharedBlock = (nodeA: Node, nodeB: Node, root: HTMLElement): HTMLEl
  * boundaries can point into, and a live `Range` silently re-anchors itself the moment that
  * happens, so re-reading it partway through would see a boundary this function never set.
  *
- * Returns the path to the last wrapper inserted, so the caret can be placed after it once this
- * runs on a clone and the result is committed to the live document.
+ * Returns the last wrapper inserted, or `null` when the range held nothing to wrap — an empty
+ * paragraph, or a void element a `b`/`i` may not enclose. The caller places the caret after it,
+ * and an element reference survives the repairs that run before the result is committed, which a
+ * path worked out here would not.
  */
-const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagName: string): number[] => {
+const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagName: string): Element | null => {
   const startContainer = range.startContainer
   const startOffset = range.startOffset
   const endContainer = range.endContainer
@@ -214,10 +216,21 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
     node = walker.nextNode()
   }
 
-  const wrapDirectly = (target: Range): Element => {
+  const wrapDirectly = (target: Range): Element | null => {
+    const contents = target.extractContents()
+
+    // nothing there to format: an empty block, or a void element a b/i may not enclose. Putting
+    // an empty wrapper in would leave markup the reparse below drops again, and a caret position
+    // pointing at a node that no longer exists.
+    if (contents.textContent === '') {
+      target.insertNode(contents)
+
+      return null
+    }
+
     const wrapper = doc.createElement(tagName)
 
-    wrapper.appendChild(target.extractContents())
+    wrapper.appendChild(contents)
     target.insertNode(wrapper)
 
     return wrapper
@@ -247,10 +260,10 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
 
     // extractContents leaves an empty text node behind exactly where mutateWithHistory's own
     // insertHTML earlier did — normalizing drops it, matching what the string round trip through
-    // that command produces, so the path below still resolves once this runs against the live copy
+    // that command produces
     root.normalize()
 
-    return nodePath(root, wrapper)
+    return wrapper
   }
 
   const wrapIfNonEmpty = (startNode: Node, startPos: number, endNode: Node, endPos: number): Element | null => {
@@ -266,7 +279,7 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
     return wrapDirectly(segment)
   }
 
-  let lastWrapper: Element = crossedBlocks[0]
+  let lastWrapper: Element | null = null
   let cursorNode: Node = startContainer
   let cursorOffset: number = startOffset
   let endHandled = false
@@ -324,9 +337,11 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
     innerRange.setEnd(endBoundary.node, endBoundary.offset)
 
     if (!innerRange.collapsed) {
-      const innerPath = wrapRangeByBlock(doc, block, innerRange, tagName)
+      const innerWrapper = wrapRangeByBlock(doc, block, innerRange, tagName)
 
-      lastWrapper = nodeAtPath(block, innerPath) as Element
+      if (!isNil(innerWrapper)) {
+        lastWrapper = innerWrapper
+      }
     }
 
     parent.normalize()
@@ -352,7 +367,7 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
 
   root.normalize()
 
-  return nodePath(root, lastWrapper)
+  return lastWrapper
 }
 
 export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
@@ -538,11 +553,17 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
 
       if (Array.isArray(caretAfterPath)) {
         const caretNode = nodeAtPath(target, caretAfterPath)
-        const caretRange = doc.createRange()
-        caretRange.setStartAfter(caretNode)
-        caretRange.collapse(true)
-        selection.removeAllRanges()
-        selection.addRange(caretRange)
+
+        // the path is worked out against the clone; should the commit above have reshaped
+        // anything on the way in, it may no longer lead anywhere, and the caret stays put
+        if (!isNil(caretNode)) {
+          const caretRange = doc.createRange()
+
+          caretRange.setStartAfter(caretNode)
+          caretRange.collapse(true)
+          selection.removeAllRanges()
+          selection.addRange(caretRange)
+        }
       }
     }
 
@@ -625,7 +646,17 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
           draftRange.setStart(nodeAtPath(draft, startPath), startOffset)
           draftRange.setEnd(nodeAtPath(draft, endPath), endOffset)
 
-          return wrapRangeByBlock(doc, draft, draftRange, INLINE_MARKS[mark].tag)
+          const wrapper = wrapRangeByBlock(doc, draft, draftRange, INLINE_MARKS[mark].tag)
+
+          // Committing the clone reinserts the whole field, and a list the browser left inside a
+          // paragraph does not survive that reparse — a list item ends up orphaned. The same
+          // repair the stored value already gets is applied to the clone first, so the shape
+          // being committed is one the reparse can keep, and it lands in this one undoable step.
+          normalizeNestedLists(draft)
+
+          // read after that repair, which moves nodes around: the wrapper itself is still the
+          // same element wherever it ended up, while a path taken earlier could point elsewhere
+          return isNil(wrapper) ? undefined : nodePath(draft, wrapper)
         })
       }
 
