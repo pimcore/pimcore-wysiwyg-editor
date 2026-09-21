@@ -46,6 +46,90 @@ const BROWSER_RENDERABLE_EXTENSIONS = ['jpg', 'jpeg', 'gif', 'png', 'webp', 'avi
 
 const getFileExtension = (path: string): string => path.split('.').pop()?.toLowerCase() ?? ''
 
+const NBSP = ' '
+
+type BoundaryChar = 'space' | 'nbsp' | 'other' | null
+
+/**
+ * The character immediately on the given side of a range boundary, up to `root` — the position a
+ * browser is protecting when it pads a boundary with &nbsp;. `null` means the boundary sits at the
+ * true edge of the field, with nothing else there at all; `'other'` covers both an ordinary
+ * character (no padding risk) and a sibling node one level up (out of scope for this check).
+ */
+const adjacentChar = (boundaryNode: Node, boundaryOffset: number, direction: 'before' | 'after', root: HTMLElement): BoundaryChar => {
+  if (boundaryNode.nodeType === Node.TEXT_NODE) {
+    const text = boundaryNode as Text
+
+    if (direction === 'before' ? boundaryOffset > 0 : boundaryOffset < text.length) {
+      const char = text.data[direction === 'before' ? boundaryOffset - 1 : boundaryOffset]
+
+      if (char === ' ') {
+        return 'space'
+      }
+
+      return char === NBSP ? 'nbsp' : 'other'
+    }
+  }
+
+  let node = boundaryNode
+
+  while (node !== root) {
+    if (!isNil(direction === 'before' ? node.previousSibling : node.nextSibling)) {
+      return 'other'
+    }
+
+    const parent: Node | null = node.parentNode
+
+    if (isNil(parent)) {
+      return null
+    }
+
+    node = parent
+  }
+
+  return null
+}
+
+/**
+ * Puts back what `direction` held before the wrap that just ran next to `mark`, where a browser
+ * turned it into &nbsp; to keep that position from collapsing against the newly formatted run —
+ * a plain space back to a plain space, and nothing at all back to nothing. An nbsp the field
+ * already held, or an ordinary character, was never at risk and is left exactly as it is.
+ */
+const restoreBoundaryChar = (mark: Element, direction: 'before' | 'after', was: BoundaryChar): void => {
+  if (was === 'nbsp' || was === 'other') {
+    return
+  }
+
+  const sibling = direction === 'before' ? mark.previousSibling : mark.nextSibling
+
+  if (sibling === null || sibling.nodeType !== Node.TEXT_NODE) {
+    return
+  }
+
+  const text = sibling as Text
+
+  if (was === null) {
+    // there was nothing on this side at all: any empty or lone-nbsp text node here is an
+    // artifact of the wrap, not anything the field's own content ever held
+    if (text.data === '' || text.data === NBSP) {
+      text.remove()
+    }
+
+    return
+  }
+
+  // was === 'space': only the one boundary character is ever affected, so only that one is put
+  // back — the rest of the text node, if any, was never touched
+  const boundaryIndex = direction === 'before' ? text.data.length - 1 : 0
+
+  if (text.data[boundaryIndex] === NBSP) {
+    text.data = direction === 'before'
+      ? text.data.slice(0, -1) + ' '
+      : ' ' + text.data.slice(1)
+  }
+}
+
 export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
   ({ value, onChange, disabled, width, height, placeholder }, ref): React.JSX.Element => {
     const wrapperRef = useRef<HTMLDivElement>(null)
@@ -286,7 +370,30 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       } else {
         const draft = doc.createElement('div')
         draft.appendChild(range.cloneContents())
-        doc.execCommand('insertHTML', false, `<${INLINE_MARKS[mark].tag}>${draft.innerHTML}</${INLINE_MARKS[mark].tag}>`)
+
+        // Replacing a range that runs to the very end of its text node leaves an empty text node
+        // behind rather than removing it, and inserting into a range collapsed inside one splits
+        // it into two — one on each side of the new mark, both still empty. Selecting the whole of
+        // a field's content produces exactly that on both sides, and some browsers then turn such
+        // a node into a real &nbsp;, to keep it usable as a caret position outside the mark — read
+        // before the field's own content changes underneath it. A temporary marker finds the mark
+        // again afterwards, since execCommand leaves no reference to what it inserted.
+        const charBefore = adjacentChar(range.startContainer, range.startOffset, 'before', content)
+        const charAfter = adjacentChar(range.endContainer, range.endOffset, 'after', content)
+        const markerAttribute = 'data-wysiwyg-mark-target'
+        doc.execCommand(
+          'insertHTML',
+          false,
+          `<${INLINE_MARKS[mark].tag} ${markerAttribute}="">${draft.innerHTML}</${INLINE_MARKS[mark].tag}>`
+        )
+
+        const inserted = content.querySelector(`[${markerAttribute}]`)
+
+        if (!isNil(inserted)) {
+          restoreBoundaryChar(inserted, 'before', charBefore)
+          restoreBoundaryChar(inserted, 'after', charAfter)
+          inserted.removeAttribute(markerAttribute)
+        }
       }
 
       emitChange()

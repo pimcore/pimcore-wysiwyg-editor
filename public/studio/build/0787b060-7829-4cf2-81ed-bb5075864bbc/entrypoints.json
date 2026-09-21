@@ -1,0 +1,34 @@
+{
+  "entrypoints": {
+    "main": {
+      "js": [
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/858.894b21d0.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/892.c1521528.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/123.961085db.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/668.288db39c.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/473.97f5774a.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/109.f63aef00.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/main.3f8b0173.js"
+      ],
+      "css": []
+    },
+    "pimcore_wysiwyg_editor_bundle": {
+      "js": [
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/858.894b21d0.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/892.c1521528.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/123.961085db.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/__federation_expose_plugins.73d4c802.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/668.288db39c.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/async/473.97f5774a.js",
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/static/js/remoteEntry.js"
+      ],
+      "css": []
+    },
+    "exposeRemote": {
+      "js": [
+        "/bundles/pimcorewysiwygeditor/studio/build/0787b060-7829-4cf2-81ed-bb5075864bbc/exposeRemote.js"
+      ],
+      "css": []
+    }
+  }
+}

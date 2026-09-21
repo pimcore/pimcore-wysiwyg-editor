@@ -55,8 +55,45 @@ const installExecCommand = (content: HTMLElement): jest.Mock => {
       const template = content.ownerDocument.createElement('template')
       template.innerHTML = argument
 
+      // captured before insertNode moves it out of the fragment and into `content` below — the
+      // same node either way, since a fragment's children are moved, not cloned, on insertion
+      const inserted = template.content.firstElementChild
+
       range?.deleteContents()
       range?.insertNode(template.content)
+
+      // Simulates the confirmed real-browser behaviour: replacing a selection turns whatever sits
+      // immediately beside the result into &nbsp; — an adjacent plain space (one boundary
+      // character, wherever the selection sits within a longer text) or, when there was nothing
+      // there at all (the whole field's content was selected), an empty text node the deleteContents
+      // + insertNode split leaves behind. Scoped to a freshly inserted b/i, so it cannot affect any
+      // other test's insertHTML.
+      const insertedMark = inserted !== null && ['B', 'I'].includes(inserted.tagName) ? inserted : null
+
+      const padBoundary = (sibling: ChildNode | null, edge: 'end' | 'start'): void => {
+        if (sibling === null || sibling.nodeType !== Node.TEXT_NODE) {
+          return
+        }
+
+        const text = sibling as Text
+
+        if (text.data === '') {
+          text.data = '\u00a0'
+
+          return
+        }
+
+        const index = edge === 'end' ? text.data.length - 1 : 0
+
+        if (text.data[index] === ' ') {
+          text.data = edge === 'end' ? text.data.slice(0, -1) + '\u00a0' : '\u00a0' + text.data.slice(1)
+        }
+      }
+
+      if (insertedMark !== null) {
+        padBoundary(insertedMark.previousSibling, 'end')
+        padBoundary(insertedMark.nextSibling, 'start')
+      }
     }
 
     return true
@@ -299,5 +336,96 @@ describe('CustomWysiwygEditor nested numbering', () => {
     renderEditor('<ol><li>list</li></ol>')
 
     expect(injectedCss()).not.toMatch(/(^|[^l] )ol\s*>\s*li::marker\s*\{[^}]*counters\(/)
+  })
+})
+
+describe('CustomWysiwygEditor bold on the field\'s entire content', () => {
+  it('does not pick up a boundary nbsp a browser pads the selection with', () => {
+    const { onChange, content } = renderEditor('<p>TEXT</p>')
+    installExecCommand(content)
+    const textNode = content.querySelector('p')?.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    // the entire text of the field, exactly as reported: nothing precedes or follows it
+    const range = document.createRange()
+    range.setStart(textNode, 0)
+    range.setEnd(textNode, textNode.textContent?.length ?? 0)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p><b>TEXT</b></p>')
+  })
+
+  it('leaves real surrounding text, and any nbsp already there, untouched', () => {
+    const { onChange, content } = renderEditor('<p>\u00a0TEXT more</p>')
+    installExecCommand(content)
+    const textNode = content.querySelector('p')?.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    // only "TEXT" is selected: real content — the leading nbsp and the trailing " more" — stays
+    // on both sides, matching the reported case that already worked
+    const range = document.createRange()
+    range.setStart(textNode, 1)
+    range.setEnd(textNode, 5)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    // .innerHTML serializes the literal nbsp character above as the &nbsp; entity text
+    expect(onChange).toHaveBeenLastCalledWith('<p>&nbsp;<b>TEXT</b> more</p>')
+  })
+
+  it('cleans up only the side that touches the edge of the field', () => {
+    const { onChange, content } = renderEditor('<p>TEXT more</p>')
+    installExecCommand(content)
+    const textNode = content.querySelector('p')?.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    // starts at the very beginning of the field, but real text follows the selection
+    const range = document.createRange()
+    range.setStart(textNode, 0)
+    range.setEnd(textNode, 4)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p><b>TEXT</b> more</p>')
+  })
+
+  it('leaves an ordinary partial selection within a longer sentence untouched', () => {
+    const { onChange, content } = renderEditor('<p>some TEXT here</p>')
+    installExecCommand(content)
+    const textNode = content.querySelector('p')?.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 5)
+    range.setEnd(textNode, 9)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p>some <b>TEXT</b> here</p>')
   })
 })
