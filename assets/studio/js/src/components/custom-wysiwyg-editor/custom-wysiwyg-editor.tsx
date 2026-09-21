@@ -69,9 +69,14 @@ const nodePath = (root: Node, node: Node): number[] => {
   return path
 }
 
-/** The node at `path` within `root` — the inverse of {@link nodePath}. */
-const nodeAtPath = (root: Node, path: number[]): Node =>
-  path.reduce<Node>((node, index) => node.childNodes[index], root)
+/**
+ * The node at `path` within `root` — the inverse of {@link nodePath}, or `null` when the path
+ * leads nowhere. A path worked out against a clone is followed against the committed document,
+ * which the browser is free to have reparsed into a slightly different shape, so any step along
+ * the way may be missing rather than only the last one.
+ */
+const nodeAtPath = (root: Node, path: number[]): Node | null =>
+  path.reduce<Node | null>((node, index) => node?.childNodes[index] ?? null, root)
 
 /**
  * Elements a `b`/`i` may legally wrap. Listing what is inline rather than what is not is the
@@ -642,9 +647,16 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         const endOffset = range.endOffset
 
         mutateWithHistory(content, (draft) => {
+          const draftStart = nodeAtPath(draft, startPath)
+          const draftEnd = nodeAtPath(draft, endPath)
+
+          if (isNil(draftStart) || isNil(draftEnd)) {
+            return undefined
+          }
+
           const draftRange = doc.createRange()
-          draftRange.setStart(nodeAtPath(draft, startPath), startOffset)
-          draftRange.setEnd(nodeAtPath(draft, endPath), endOffset)
+          draftRange.setStart(draftStart, startOffset)
+          draftRange.setEnd(draftEnd, endOffset)
 
           const wrapper = wrapRangeByBlock(doc, draft, draftRange, INLINE_MARKS[mark].tag)
 
