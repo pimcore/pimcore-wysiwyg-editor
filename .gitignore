@@ -53,3 +53,7 @@ package-lock.json
 /.htaccess
 /auth.json
 /config.json
+
+
+# Expanded frontend build is generated from build-dist/build-<id>.zip, not committed
+/public/studio/build/
