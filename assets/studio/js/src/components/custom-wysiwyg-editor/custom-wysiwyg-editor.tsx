@@ -46,129 +46,32 @@ const BROWSER_RENDERABLE_EXTENSIONS = ['jpg', 'jpeg', 'gif', 'png', 'webp', 'avi
 
 const getFileExtension = (path: string): string => path.split('.').pop()?.toLowerCase() ?? ''
 
-const NBSP = ' '
-
-type BoundaryChar = 'space' | 'nbsp' | 'other' | null
-
 /**
- * The character immediately on the given side of a range boundary, up to `root` — the position a
- * browser is protecting when it pads a boundary with &nbsp;. `null` means the boundary sits at the
- * true edge of the field, with nothing else there at all.
- *
- * A `Range` boundary is either a character offset into a text node, or a child-node index into an
- * element — selecting a whole element (a dropped link, say) gives the latter. Either way, once
- * the boundary's own container holds nothing further on this side, the search moves to whichever
- * actual node sits next: the child living at that exact index for an element container, or a walk
- * out through ancestors (never past `root`) for a text container that is otherwise exhausted.
+ * The child-index path from `root` down to `node`, so the same position can be found again in a
+ * structurally identical clone of `root` — a `Range` only makes sense against the live document,
+ * so wrapping a selection inside a detached clone needs another way to locate it there.
  */
-const adjacentChar = (boundaryNode: Node, boundaryOffset: number, direction: 'before' | 'after', root: HTMLElement): BoundaryChar => {
-  if (boundaryNode.nodeType === Node.TEXT_NODE) {
-    const text = boundaryNode as Text
+const nodePath = (root: Node, node: Node): number[] => {
+  const path: number[] = []
+  let current = node
 
-    if (direction === 'before' ? boundaryOffset > 0 : boundaryOffset < text.length) {
-      const char = text.data[direction === 'before' ? boundaryOffset - 1 : boundaryOffset]
+  while (current !== root) {
+    const parent: Node | null = current.parentNode
 
-      if (char === ' ') {
-        return 'space'
-      }
-
-      return char === NBSP ? 'nbsp' : 'other'
+    if (isNil(parent)) {
+      break
     }
+
+    path.unshift(Array.prototype.indexOf.call(parent.childNodes, current))
+    current = parent
   }
 
-  const siblingOf = (node: Node): Node | null =>
-    node === root ? null : (direction === 'before' ? node.previousSibling : node.nextSibling)
-
-  /** The next node to look at after `from`'s own position, walking up through ancestors (but
-   *  never past `root`) until one of them has a sibling on this side. */
-  const walkOut = (from: Node): Node | null => {
-    let current = from
-
-    while (isNil(siblingOf(current))) {
-      if (current === root) {
-        return null
-      }
-
-      const parent: Node | null = current.parentNode
-
-      if (isNil(parent)) {
-        return null
-      }
-
-      current = parent
-    }
-
-    return siblingOf(current)
-  }
-
-  let next: Node | null = boundaryNode.nodeType === Node.TEXT_NODE
-    ? walkOut(boundaryNode)
-    : (direction === 'before' ? boundaryNode.childNodes[boundaryOffset - 1] : boundaryNode.childNodes[boundaryOffset]) ?? walkOut(boundaryNode)
-
-  while (!isNil(next)) {
-    if (next.nodeType !== Node.TEXT_NODE) {
-      // an element sits right there — real content, not a whitespace-collapse risk
-      return 'other'
-    }
-
-    const text = next as Text
-
-    if (text.length > 0) {
-      const char = direction === 'before' ? text.data[text.length - 1] : text.data[0]
-
-      if (char === ' ') {
-        return 'space'
-      }
-
-      return char === NBSP ? 'nbsp' : 'other'
-    }
-
-    // an empty text node holds nothing: keep walking past it
-    next = walkOut(next)
-  }
-
-  return null
+  return path
 }
 
-/**
- * Puts back what `direction` held before the wrap that just ran next to `mark`, where a browser
- * turned it into &nbsp; to keep that position from collapsing against the newly formatted run —
- * a plain space back to a plain space, and nothing at all back to nothing. An nbsp the field
- * already held, or an ordinary character, was never at risk and is left exactly as it is.
- */
-const restoreBoundaryChar = (mark: Element, direction: 'before' | 'after', was: BoundaryChar): void => {
-  if (was === 'nbsp' || was === 'other') {
-    return
-  }
-
-  const sibling = direction === 'before' ? mark.previousSibling : mark.nextSibling
-
-  if (sibling === null || sibling.nodeType !== Node.TEXT_NODE) {
-    return
-  }
-
-  const text = sibling as Text
-
-  if (was === null) {
-    // there was nothing on this side at all: any empty or lone-nbsp text node here is an
-    // artifact of the wrap, not anything the field's own content ever held
-    if (text.data === '' || text.data === NBSP) {
-      text.remove()
-    }
-
-    return
-  }
-
-  // was === 'space': only the one boundary character is ever affected, so only that one is put
-  // back — the rest of the text node, if any, was never touched
-  const boundaryIndex = direction === 'before' ? text.data.length - 1 : 0
-
-  if (text.data[boundaryIndex] === NBSP) {
-    text.data = direction === 'before'
-      ? text.data.slice(0, -1) + ' '
-      : ' ' + text.data.slice(1)
-  }
-}
+/** The node at `path` within `root` — the inverse of {@link nodePath}. */
+const nodeAtPath = (root: Node, path: number[]): Node =>
+  path.reduce<Node>((node, index) => node.childNodes[index], root)
 
 export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
   ({ value, onChange, disabled, width, height, placeholder }, ref): React.JSX.Element => {
@@ -408,37 +311,27 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         // no selection to wrap — let the browser handle "type the next characters marked"
         doc.execCommand(mark)
       } else {
-        const draft = doc.createElement('div')
-        draft.appendChild(range.cloneContents())
+        // Wrapping the selection directly through execCommand risks a browser quirk: replacing a
+        // range that sits next to a plain space, or that spans a whole text node, can leave that
+        // space — or an empty text node split off in its place — turned into a real &nbsp;, one a
+        // reader never typed. Building the wrap on a detached clone with the plain Range API next
+        // avoids the browser's own insertHTML behaviour entirely, and committing the whole,
+        // already-correct result through `mutateWithHistory` in one step keeps undo and redo
+        // reverting and replaying that exact result, rather than an intermediate one.
+        const startPath = nodePath(content, range.startContainer)
+        const startOffset = range.startOffset
+        const endPath = nodePath(content, range.endContainer)
+        const endOffset = range.endOffset
 
-        // Replacing a range that runs to the very end of its text node leaves an empty text node
-        // behind rather than removing it, and inserting into a range collapsed inside one splits
-        // it into two — one on each side of the new mark, both still empty. Selecting the whole of
-        // a field's content produces exactly that on both sides, and some browsers then turn such
-        // a node into a real &nbsp;, to keep it usable as a caret position outside the mark — read
-        // before the field's own content changes underneath it. A temporary marker finds the mark
-        // again afterwards, since execCommand leaves no reference to what it inserted.
-        const charBefore = adjacentChar(range.startContainer, range.startOffset, 'before', content)
-        const charAfter = adjacentChar(range.endContainer, range.endOffset, 'after', content)
+        mutateWithHistory(content, (draft) => {
+          const draftRange = doc.createRange()
+          draftRange.setStart(nodeAtPath(draft, startPath), startOffset)
+          draftRange.setEnd(nodeAtPath(draft, endPath), endOffset)
 
-        // a unique value per call: code view can persist arbitrary HTML, so a plain boolean marker
-        // could already exist elsewhere in the field and be picked up instead of what was just
-        // inserted here
-        const markerAttribute = 'data-wysiwyg-mark-target'
-        const markerValue = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-        doc.execCommand(
-          'insertHTML',
-          false,
-          `<${INLINE_MARKS[mark].tag} ${markerAttribute}="${markerValue}">${draft.innerHTML}</${INLINE_MARKS[mark].tag}>`
-        )
-
-        const inserted = content.querySelector(`[${markerAttribute}="${markerValue}"]`)
-
-        if (!isNil(inserted)) {
-          restoreBoundaryChar(inserted, 'before', charBefore)
-          restoreBoundaryChar(inserted, 'after', charAfter)
-          inserted.removeAttribute(markerAttribute)
-        }
+          const wrapper = doc.createElement(INLINE_MARKS[mark].tag)
+          wrapper.appendChild(draftRange.extractContents())
+          draftRange.insertNode(wrapper)
+        })
       }
 
       emitChange()

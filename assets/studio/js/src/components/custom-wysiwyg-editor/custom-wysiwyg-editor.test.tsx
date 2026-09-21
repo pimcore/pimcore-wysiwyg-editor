@@ -21,18 +21,32 @@ const MUTATING_COMMANDS = ['insertText', 'insertHorizontalRule', 'insertHTML']
 
 /**
  * jsdom has no execCommand; this stand-in mimics the browser closely enough for the emitted value,
- * and undo, to reflect the edit: every mutating command snapshots the content first, and 'undo'
- * restores the last one, the way the real undo history the editor relies on would.
+ * and undo/redo, to reflect the edit: every mutating command snapshots the content first and clears
+ * anything to redo, 'undo' restores the last snapshot (saving the current state to redo back to),
+ * and 'redo' does the reverse — the way the real history the editor relies on would.
  */
 const installExecCommand = (content: HTMLElement): jest.Mock => {
   const history: string[] = []
+  const future: string[] = []
 
   const execCommand = jest.fn((command: string, _ui?: boolean, argument?: string) => {
     if (command === 'undo') {
       const previous = history.pop()
 
       if (previous !== undefined) {
+        future.push(content.innerHTML)
         content.innerHTML = previous
+      }
+
+      return true
+    }
+
+    if (command === 'redo') {
+      const next = future.pop()
+
+      if (next !== undefined) {
+        history.push(content.innerHTML)
+        content.innerHTML = next
       }
 
       return true
@@ -40,6 +54,7 @@ const installExecCommand = (content: HTMLElement): jest.Mock => {
 
     if (MUTATING_COMMANDS.includes(command)) {
       history.push(content.innerHTML)
+      future.length = 0
     }
 
     if (command === 'insertText' && argument !== undefined) {
@@ -55,45 +70,8 @@ const installExecCommand = (content: HTMLElement): jest.Mock => {
       const template = content.ownerDocument.createElement('template')
       template.innerHTML = argument
 
-      // captured before insertNode moves it out of the fragment and into `content` below — the
-      // same node either way, since a fragment's children are moved, not cloned, on insertion
-      const inserted = template.content.firstElementChild
-
       range?.deleteContents()
       range?.insertNode(template.content)
-
-      // Simulates the confirmed real-browser behaviour: replacing a selection turns whatever sits
-      // immediately beside the result into &nbsp; — an adjacent plain space (one boundary
-      // character, wherever the selection sits within a longer text) or, when there was nothing
-      // there at all (the whole field's content was selected), an empty text node the deleteContents
-      // + insertNode split leaves behind. Scoped to a freshly inserted b/i, so it cannot affect any
-      // other test's insertHTML.
-      const insertedMark = inserted !== null && ['B', 'I'].includes(inserted.tagName) ? inserted : null
-
-      const padBoundary = (sibling: ChildNode | null, edge: 'end' | 'start'): void => {
-        if (sibling === null || sibling.nodeType !== Node.TEXT_NODE) {
-          return
-        }
-
-        const text = sibling as Text
-
-        if (text.data === '') {
-          text.data = '\u00a0'
-
-          return
-        }
-
-        const index = edge === 'end' ? text.data.length - 1 : 0
-
-        if (text.data[index] === ' ') {
-          text.data = edge === 'end' ? text.data.slice(0, -1) + '\u00a0' : '\u00a0' + text.data.slice(1)
-        }
-      }
-
-      if (insertedMark !== null) {
-        padBoundary(insertedMark.previousSibling, 'end')
-        padBoundary(insertedMark.nextSibling, 'start')
-      }
     }
 
     return true
@@ -339,8 +317,8 @@ describe('CustomWysiwygEditor nested numbering', () => {
   })
 })
 
-describe('CustomWysiwygEditor bold on the field\'s entire content', () => {
-  it('does not pick up a boundary nbsp a browser pads the selection with', () => {
+describe('CustomWysiwygEditor bold next to whitespace', () => {
+  it('bolds the whole field without picking up a stray nbsp at either edge', () => {
     const { onChange, content } = renderEditor('<p>TEXT</p>')
     installExecCommand(content)
     const textNode = content.querySelector('p')?.firstChild
@@ -430,8 +408,6 @@ describe('CustomWysiwygEditor bold on the field\'s entire content', () => {
   })
 
   it('preserves an existing nbsp when the selection boundary is a whole element, not a text offset', () => {
-    // the sibling text node is nbsp and nothing else, matching the shape that actually exercises
-    // the bug: a longer text node merely starting with nbsp was never at risk either way
     const { onChange, content } = renderEditor('<p><a href="https://example.com">Link</a> </p>')
     installExecCommand(content)
     const anchor = content.querySelector('a')
@@ -454,26 +430,31 @@ describe('CustomWysiwygEditor bold on the field\'s entire content', () => {
     expect(onChange).toHaveBeenLastCalledWith('<p><b><a href="https://example.com">Link</a></b>&nbsp;</p>')
   })
 
-  it("cleans up only the mark this operation inserted, not another one already carrying the same attribute", () => {
-    const { onChange, content } = renderEditor('<p><b data-wysiwyg-mark-target="stale">Old</b> TEXT more</p>')
+  it('keeps the corrected spacing through both an undo and a following redo', () => {
+    const { content } = renderEditor('<p>Before Bold After</p>')
     installExecCommand(content)
-    const textNode = content.querySelector('p')?.lastChild
+    const textNode = content.querySelector('p')?.firstChild
 
-    if (textNode?.nodeType !== Node.TEXT_NODE) {
-      throw new Error('content not rendered as expected')
+    if (textNode == null) {
+      throw new Error('content not rendered')
     }
 
     const range = document.createRange()
-    range.setStart(textNode, 1)
-    range.setEnd(textNode, 5)
+    range.setStart(textNode, 7)
+    range.setEnd(textNode, 11)
     const selection = document.getSelection()
     selection?.removeAllRanges()
     selection?.addRange(range)
 
     fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+    expect(content.innerHTML).toBe('<p>Before <b>Bold</b> After</p>')
 
-    expect(onChange).toHaveBeenLastCalledWith(
-      '<p><b data-wysiwyg-mark-target="stale">Old</b> <b>TEXT</b> more</p>'
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+    expect(content.innerHTML).toBe('<p>Before Bold After</p>')
+
+    // the correction is part of the one step undo just reverted, not a separate step layered on
+    // top of it — so redo replays that same corrected result, never the browser's raw one
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.redo' }))
+    expect(content.innerHTML).toBe('<p>Before <b>Bold</b> After</p>')
   })
 })
