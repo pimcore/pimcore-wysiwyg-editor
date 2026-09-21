@@ -68,7 +68,7 @@ export const INLINE_MARKS: Record<InlineMark, InlineMarkDefinition> = {
   italic: {
     tag: 'i',
     tags: ['I', 'EM'],
-    isStyled: (element) => element.style.fontStyle === 'italic'
+    isStyled: (element) => isItalicStyle(element.style.fontStyle)
   }
 }
 
@@ -79,6 +79,10 @@ export const queryState = (doc: Document, command: string): boolean => {
     return false
   }
 }
+
+/** Whether a font-style value slants the text — oblique, at any angle, reads as italic as much as italic does. */
+export const isItalicStyle = (fontStyle: string): boolean =>
+  fontStyle === 'italic' || fontStyle.startsWith('oblique')
 
 export const isBoldWeight = (weight: string): boolean => {
   if (weight === 'bold' || weight === 'bolder') {
@@ -110,9 +114,9 @@ const resolveStartNode = (range: Range): Node => {
  * unrecognised as a block keeps the wrap from ever being placed around one.
  */
 export const INLINE_TAGS = new Set([
-  'A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'CITE', 'CODE', 'DATA', 'DFN', 'EM', 'I', 'IMG', 'KBD',
-  'MARK', 'Q', 'RP', 'RT', 'RUBY', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME',
-  'U', 'VAR', 'WBR'
+  'A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'CITE', 'CODE', 'DATA', 'DEL', 'DFN', 'EM', 'I', 'IMG',
+  'INS', 'KBD', 'LABEL', 'MARK', 'Q', 'RP', 'RT', 'RUBY', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG',
+  'SUB', 'SUP', 'TIME', 'U', 'VAR', 'WBR'
 ])
 
 /** Whether `node` is an element the wrap has to stay inside rather than enclose. */

@@ -25,6 +25,7 @@ import {
   findListItem,
   isBlockElement,
   isBoldWeight,
+  isItalicStyle,
   queryState,
   resolveSelectionStartNode,
   useEditorSelection,
@@ -155,9 +156,7 @@ const isMarkInherited = (element: Node, mark: InlineMark): boolean => {
     return false
   }
 
-  return mark === 'bold'
-    ? isBoldWeight(style.fontWeight)
-    : style.fontStyle === 'italic' || style.fontStyle.startsWith('oblique')
+  return mark === 'bold' ? isBoldWeight(style.fontWeight) : isItalicStyle(style.fontStyle)
 }
 
 /**
@@ -237,7 +236,8 @@ const closestSharedBlock = (nodeA: Node, nodeB: Node, root: HTMLElement): HTMLEl
 /**
  * Removes the empty text nodes among `parent`'s own children. Unlike `normalize()` this neither
  * recurses nor merges: the range boundaries {@link wrapRangeByBlock} still holds may point into a
- * text node anywhere below `parent`, and merging would detach them.
+ * text node anywhere below `parent`, and merging would detach them — as removing an empty one
+ * they sit in would, which the caller moves them out of first.
  */
 const dropEmptyTextChildren = (parent: Node): void => {
   Array.from(parent.childNodes).forEach((child) => {
@@ -268,10 +268,34 @@ const dropEmptyTextChildren = (parent: Node): void => {
  * path worked out here would not.
  */
 const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagName: string): Element | null => {
-  const startContainer = range.startContainer
-  const startOffset = range.startOffset
-  const endContainer = range.endContainer
-  const endOffset = range.endOffset
+  let startContainer = range.startContainer
+  let startOffset = range.startOffset
+  let endContainer = range.endContainer
+  let endOffset = range.endOffset
+
+  // Drops the empty text nodes among `parent`'s children — moving a boundary that sits in one of
+  // them to the same position in `parent` first, so it does not come loose with the node. That
+  // position is counted in the children that remain, since empty ones before it go as well.
+  const settle = (parent: Node): void => {
+    const isEmptyText = (node: Node): boolean => node.nodeType === Node.TEXT_NODE && (node as Text).data === ''
+    const reanchor = (node: Node, offset: number): { node: Node, offset: number } => {
+      if (!isEmptyText(node) || node.parentNode !== parent) {
+        return { node, offset }
+      }
+
+      const siblings = Array.from(parent.childNodes)
+
+      return { node: parent, offset: siblings.slice(0, siblings.indexOf(node as ChildNode)).filter((sibling) => !isEmptyText(sibling)).length }
+    }
+    const start = reanchor(startContainer, startOffset)
+    const end = reanchor(endContainer, endOffset)
+
+    startContainer = start.node
+    startOffset = start.offset
+    endContainer = end.node
+    endOffset = end.offset
+    dropEmptyTextChildren(parent)
+  }
 
   // the leaf positions these boundaries actually reach, used only to test whether a candidate
   // block holds them — an element-boundary range (selecting a whole element, or every child of
@@ -290,8 +314,10 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
 
   while (!isNil(node)) {
     const element = node as HTMLElement
-    // a block already inside one already collected gets handled when that one recurses into it
-    const alreadyCovered = crossedBlocks.some((existing) => existing.contains(element))
+    // a block already inside one already collected gets handled when that one recurses into it —
+    // and with the walk depth-first, only the block collected last can still contain this one
+    const lastCollected = crossedBlocks[crossedBlocks.length - 1]
+    const alreadyCovered = !isNil(lastCollected) && lastCollected.contains(element)
 
     if (!alreadyCovered && !(element.contains(startLeaf.node) && element.contains(endLeaf.node))) {
       crossedBlocks.push(element)
@@ -396,7 +422,7 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
 
     // that wrap can leave an empty text node behind next to `block`, throwing off every index
     // computed against `parent` below — settle it before reading any of them
-    dropEmptyTextChildren(parent)
+    settle(parent)
 
     // the range's own overlap with this block's content: reaching in from the range's own start
     // (or out to its own end) when that boundary sits inside the block, its own full content
@@ -428,7 +454,7 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
       }
     }
 
-    dropEmptyTextChildren(parent)
+    settle(parent)
     cursorNode = parent
     cursorOffset = Array.prototype.indexOf.call(parent.childNodes, block) + 1
   }
@@ -621,10 +647,17 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
 
       const range = doc.createRange()
 
-      range.selectNode(target)
+      // the field itself is never replaced — a list item sitting directly in it, as source-view
+      // HTML can put there, makes the field the list to repair — only its contents are
+      if (target === content) {
+        range.selectNodeContents(target)
+      } else {
+        range.selectNode(target)
+      }
+
       selection.removeAllRanges()
       selection.addRange(range)
-      doc.execCommand('insertHTML', false, draft.outerHTML)
+      doc.execCommand('insertHTML', false, target === content ? draft.innerHTML : draft.outerHTML)
     }
 
     /**

@@ -13,6 +13,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { messageMock } from '../../../test-utils/mocks/studio-ui-components-mock'
 import { settingsMock } from '../../../test-utils/mocks/studio-ui-modules-app-mock'
 import { CustomWysiwygEditor } from './custom-wysiwyg-editor'
+import { INLINE_TAGS } from './use-editor-selection'
 
 const PASTE_BUTTON = 'wysiwyg-editor.toolbar.paste-plain-text'
 const HORIZONTAL_RULE_BUTTON = 'wysiwyg-editor.toolbar.horizontal-rule'
@@ -130,19 +131,39 @@ const installExecCommand = (content: HTMLElement): jest.Mock => {
           }
         }
 
-        // the character just before where the replacement starts, and just after where it ends
-        if (range.startContainer.nodeType === Node.TEXT_NODE && range.startOffset === 0) {
-          const previous = range.startContainer.previousSibling
+        // Measured: a range with text-node boundaries has the space on both sides promoted; one
+        // whose boundaries are element positions (a whole element selected) only the one after it.
+        // A neighbour that is itself an inline element counts by its outermost text; a block does not.
+        const edgeText = (node: Node | null, edge: 'first' | 'last'): Node | null => {
+          let current = node
 
-          if (previous !== null) {
-            promote(previous, -1)
+          while (current !== null && current.nodeType !== Node.TEXT_NODE) {
+            if (!(current instanceof HTMLElement) || !INLINE_TAGS.has(current.tagName)) {
+              return null
+            }
+
+            current = edge === 'first' ? current.firstChild : current.lastChild
           }
-        } else if (range.startContainer.nodeType === Node.TEXT_NODE) {
-          promote(range.startContainer, range.startOffset - 1)
+
+          return current
         }
 
-        if (range.endContainer.nodeType === Node.TEXT_NODE) {
-          promote(range.endContainer, range.endOffset)
+        if (range.startContainer.nodeType === Node.TEXT_NODE) {
+          const before = range.startOffset > 0
+            ? { node: range.startContainer, at: range.startOffset - 1 }
+            : { node: edgeText(range.startContainer.previousSibling, 'last'), at: -1 }
+
+          if (before.node !== null) {
+            promote(before.node, before.at)
+          }
+        }
+
+        const after = range.endContainer.nodeType === Node.TEXT_NODE
+          ? { node: range.endContainer, at: range.endOffset }
+          : { node: edgeText(range.endContainer.childNodes[range.endOffset] ?? null, 'first'), at: 0 }
+
+        if (after.node !== null) {
+          promote(after.node, after.at)
         }
       }
 
@@ -1353,5 +1374,104 @@ describe('CustomWysiwygEditor commit granularity', () => {
     expect(emitted).toContain('<b>Bold</b>')
     expect(emitted).toContain('<li>a<ul><li>b</li></ul></li>')
     expect(emitted.match(/<li>/g)).toHaveLength(2)
+  })
+
+  it('keeps a selection ending at an empty text node where it ends', () => {
+    const { onChange, content } = renderEditor('<ul><li>x<ul><li>y</li></ul></li></ul>')
+    installExecCommand(content)
+    const item = content.querySelector('li')
+    item?.append('cd')
+    item?.append('')
+    item?.append('ef')
+    const start = item?.firstChild
+    const emptyNode = item?.childNodes[3]
+
+    if (start == null || emptyNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(start, 0)
+    range.setEnd(emptyNode, 0)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    // "ef" lies beyond the selection's end, empty node or not
+    expect(onChange).toHaveBeenLastCalledWith('<ul><li><b>x</b><ul><li><b>y</b></li></ul><b>cd</b>ef</li></ul>')
+  })
+
+  it.each([
+    ['<del style="font-weight: bold">', 'del', 'bold'],
+    ['<span style="font-style: oblique">', 'span', 'italic']
+  ])('unwraps a %s inline element carrying the mark as a style', (opening, tag, mark) => {
+    const { onChange, content } = renderEditor(`<p>Before ${opening}Bold</${tag}> After</p>`)
+    installExecCommand(content)
+    const styledText = content.querySelector(tag)?.firstChild
+
+    if (styledText == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(styledText, 2)
+    range.collapse(true)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: `wysiwyg-editor.toolbar.${mark}` }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p>Before Bold After</p>')
+  })
+})
+
+describe('CustomWysiwygEditor list repair at the field itself', () => {
+  it('keeps the field element when the item to repair sits directly in it', () => {
+    // source-view HTML can put a list item straight into the field; the "list" to repair is then
+    // the field itself, which must only ever have its contents replaced, never be replaced
+    const { onChange, content } = renderEditor('<li><ul><li>nested</li></ul></li>')
+    installExecCommand(content)
+    const item = content.querySelector('li')
+
+    if (item == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(item, 0)
+    range.collapse(true)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.keyDown(content, { key: 'Backspace' })
+
+    expect(content.isConnected).toBe(true)
+    expect(onChange).toHaveBeenLastCalledWith('<li>nested</li>')
+  })
+})
+
+describe('execCommand stand-in', () => {
+  it('promotes the spaces beside an element replaced whole, as the browser does', () => {
+    // replacing the <b> itself — the route unwrapping used to take — sits the replacement between
+    // two plain spaces; the stand-in has to reproduce the promotion for element boundaries too,
+    // or the unwrap regression test could not tell that route from the current one
+    const { content } = renderEditor('<p>Before <b>Bold</b> After</p>')
+    installExecCommand(content)
+    const bold = content.querySelector('b')
+
+    if (bold == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.selectNode(bold)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    document.execCommand('insertHTML', false, 'Bold')
+
+    // the trailing space only, exactly as measured in Chromium for an element replaced whole
+    expect(content.innerHTML).toBe('<p>Before Bold&nbsp;After</p>')
   })
 })
