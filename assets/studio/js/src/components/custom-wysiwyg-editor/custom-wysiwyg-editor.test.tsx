@@ -1240,4 +1240,87 @@ describe('CustomWysiwygEditor commit granularity', () => {
     expect(after?.startContainer).toBe(paragraph?.firstChild)
     expect(after?.startOffset).toBe(11)
   })
+
+  it('keeps a selection ending in the second of two adjacent text nodes where it ends', () => {
+    // adjacent text nodes only arise from DOM operations; settling the item's children after the
+    // leading wrap must not merge them, or the boundary held for the end would come loose
+    const { onChange, content } = renderEditor('<ul><li>x<ul><li>y</li></ul></li></ul>')
+    installExecCommand(content)
+    const item = content.querySelector('li')
+    item?.append('cd')
+    item?.append('ef')
+    const start = item?.firstChild
+    const end = item?.lastChild
+
+    if (start == null || end == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(start, 0)
+    range.setEnd(end, 1)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<ul><li><b>x</b><ul><li><b>y</b></li></ul><b>cde</b>f</li></ul>')
+  })
+
+  it('adds the mark inside a block styled bold rather than treating the block as the mark', () => {
+    const { onChange, content } = renderEditor('<p style="font-weight: bold">Before Bold After</p>')
+    installExecCommand(content)
+    select(content, 'p', 7, 'p', 11)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    // like a heading, the block's own weight is not something the button takes off
+    expect(onChange).toHaveBeenLastCalledWith('<p style="font-weight: bold">Before <b>Bold</b> After</p>')
+  })
+
+  it('still unwraps an inline element styled bold', () => {
+    const { onChange, content } = renderEditor('<p>Before <span style="font-weight: bold">Bold</span> After</p>')
+    installExecCommand(content)
+    const styledText = content.querySelector('span')?.firstChild
+
+    if (styledText == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(styledText, 2)
+    range.collapse(true)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p>Before Bold After</p>')
+  })
+
+  it('leaves the typing style alone inside an oblique block, as inside an italic one', () => {
+    const style = document.createElement('style')
+    style.textContent = 'p.slanted { font-style: oblique 10deg; }'
+    document.head.appendChild(style)
+
+    try {
+      const { content } = renderEditor('<p class="slanted">Before Bold After</p>')
+      const execCommand = installExecCommand(content)
+      const paragraph = content.querySelector('p')
+
+      if (paragraph == null) {
+        throw new Error('content not rendered')
+      }
+
+      expect(getComputedStyle(paragraph).fontStyle).toMatch(/^oblique/)
+      select(content, 'p', 7, 'p', 11)
+
+      fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.italic' }))
+
+      expect(content.innerHTML).toBe('<p class="slanted">Before <i>Bold</i> After</p>')
+      expect(execCommand).not.toHaveBeenCalledWith('italic')
+    } finally {
+      style.remove()
+    }
+  })
 })

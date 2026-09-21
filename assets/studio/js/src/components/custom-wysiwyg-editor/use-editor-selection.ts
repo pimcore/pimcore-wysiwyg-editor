@@ -103,6 +103,22 @@ const resolveStartNode = (range: Range): Node => {
 }
 
 /** Walks from `node` up to (but not including) `root`, returning the first element that matches. */
+/**
+ * Elements a `b`/`i` may legally wrap. Listing what is inline rather than what is not is the
+ * safer way round here: the toolbar produces a known handful of blocks, but the code view accepts
+ * whatever a project pastes into it — a table, a `pre`, a `section` — and treating anything
+ * unrecognised as a block keeps the wrap from ever being placed around one.
+ */
+export const INLINE_TAGS = new Set([
+  'A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'CITE', 'CODE', 'DATA', 'DFN', 'EM', 'I', 'IMG', 'KBD',
+  'MARK', 'Q', 'RP', 'RT', 'RUBY', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME',
+  'U', 'VAR', 'WBR'
+])
+
+/** Whether `node` is an element the wrap has to stay inside rather than enclose. */
+export const isBlockElement = (node: Node): node is HTMLElement =>
+  node instanceof HTMLElement && !INLINE_TAGS.has(node.tagName)
+
 const findAncestor = (root: HTMLElement, node: Node, matches: (element: HTMLElement) => boolean): HTMLElement | null => {
   let current: Node | null = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode
 
@@ -123,12 +139,14 @@ const findAncestor = (root: HTMLElement, node: Node, matches: (element: HTMLElem
  * `queryCommandState('bold' | 'italic')` cannot answer this: it reports the *computed* style, so it
  * is true for anything inside a heading purely because headings default to font-weight 700. That
  * both lights up the bold button when nothing is bold and makes `execCommand('bold')` "un-bold"
- * heading text into a `span{font-weight:normal}` instead of adding a `b`.
+ * heading text into a `span{font-weight:normal}` instead of adding a `b`. A block carrying the
+ * style itself — a paragraph styled bold — is treated like such a heading: not a mark the button
+ * lights up for or takes off, but the block the text sits in; only an inline element counts.
  */
 export const findInlineMark = (root: HTMLElement, node: Node, mark: InlineMark): HTMLElement | null => {
   const { tags, isStyled } = INLINE_MARKS[mark]
 
-  return findAncestor(root, node, (element) => tags.includes(element.nodeName) || isStyled(element))
+  return findAncestor(root, node, (element) => tags.includes(element.nodeName) || (!isBlockElement(element) && isStyled(element)))
 }
 
 /** The list item the caret sits in, if any — indenting only makes sense inside one. */

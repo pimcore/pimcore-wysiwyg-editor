@@ -23,6 +23,7 @@ import {
   findEnclosingLink,
   findInlineMark,
   findListItem,
+  isBlockElement,
   isBoldWeight,
   queryState,
   resolveSelectionStartNode,
@@ -79,22 +80,6 @@ const nodePath = (root: Node, node: Node): number[] => {
  */
 const nodeAtPath = (root: Node, path: number[]): Node | null =>
   path.reduce<Node | null>((node, index) => node?.childNodes[index] ?? null, root)
-
-/**
- * Elements a `b`/`i` may legally wrap. Listing what is inline rather than what is not is the
- * safer way round here: the toolbar produces a known handful of blocks, but the code view accepts
- * whatever a project pastes into it — a table, a `pre`, a `section` — and treating anything
- * unrecognised as a block keeps the wrap from ever being placed around one.
- */
-const INLINE_TAGS = new Set([
-  'A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'CITE', 'CODE', 'DATA', 'DFN', 'EM', 'I', 'IMG', 'KBD',
-  'MARK', 'Q', 'RP', 'RT', 'RUBY', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME',
-  'U', 'VAR', 'WBR'
-])
-
-/** Whether `node` is an element the wrap has to stay inside rather than enclose. */
-const isBlockElement = (node: Node): node is HTMLElement =>
-  node instanceof HTMLElement && !INLINE_TAGS.has(node.tagName)
 
 /** Where to leave the caret once a span is committed: right after a node, or at an offset within one. */
 type CaretAnchor = { after: Node } | { within: Node, offset: number }
@@ -170,7 +155,9 @@ const isMarkInherited = (element: Node, mark: InlineMark): boolean => {
     return false
   }
 
-  return mark === 'bold' ? isBoldWeight(style.fontWeight) : style.fontStyle === 'italic'
+  return mark === 'bold'
+    ? isBoldWeight(style.fontWeight)
+    : style.fontStyle === 'italic' || style.fontStyle.startsWith('oblique')
 }
 
 /**
@@ -245,6 +232,19 @@ const closestSharedBlock = (nodeA: Node, nodeB: Node, root: HTMLElement): HTMLEl
   }
 
   return null
+}
+
+/**
+ * Removes the empty text nodes among `parent`'s own children. Unlike `normalize()` this neither
+ * recurses nor merges: the range boundaries {@link wrapRangeByBlock} still holds may point into a
+ * text node anywhere below `parent`, and merging would detach them.
+ */
+const dropEmptyTextChildren = (parent: Node): void => {
+  Array.from(parent.childNodes).forEach((child) => {
+    if (child.nodeType === Node.TEXT_NODE && (child as Text).data === '') {
+      child.remove()
+    }
+  })
 }
 
 /**
@@ -396,7 +396,7 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
 
     // that wrap can leave an empty text node behind next to `block`, throwing off every index
     // computed against `parent` below — settle it before reading any of them
-    parent.normalize()
+    dropEmptyTextChildren(parent)
 
     // the range's own overlap with this block's content: reaching in from the range's own start
     // (or out to its own end) when that boundary sits inside the block, its own full content
@@ -428,7 +428,7 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
       }
     }
 
-    parent.normalize()
+    dropEmptyTextChildren(parent)
     cursorNode = parent
     cursorOffset = Array.prototype.indexOf.call(parent.childNodes, block) + 1
   }
