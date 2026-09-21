@@ -96,6 +96,9 @@ const INLINE_TAGS = new Set([
 const isBlockElement = (node: Node): node is HTMLElement =>
   node instanceof HTMLElement && !INLINE_TAGS.has(node.tagName)
 
+/** Where to leave the caret once a span is committed: right after a node, or at an offset within one. */
+type CaretAnchor = { after: Node } | { within: Node, offset: number }
+
 interface FieldSpan {
   container: HTMLElement
   from: number
@@ -112,7 +115,9 @@ const beginsInline = (element: HTMLElement): boolean =>
 /**
  * The child-index spans of `root` (or of blocks nested in it) to write back for a change within
  * `range` — see {@link commitSpan} for why a span must not begin with a block. A container that
- * begins inline goes back whole. Otherwise each block the range reaches is taken on its own,
+ * begins inline goes back whole — including a paragraph the browser left a list in after its
+ * text, which the browser lifts the list out of on the way in, whereas the text run written back
+ * on its own picks up a stray <br>. Otherwise each block the range reaches is taken on its own,
  * descending into it as long as it begins with a block itself, and each run of inline nodes
  * between blocks is one span of its parent.
  */
@@ -638,15 +643,17 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * separator, and nothing a reader can see.
      *
      * `mutate` gets a clone of the span alone — nothing outside it is there to be moved, so the
-     * span's own indices cannot drift — and may return a node in that clone to find again once
-     * committed. Returns that node, resolved against the live container, if it can still be found.
+     * span's own indices cannot drift — and may return where to leave the caret, in terms of that
+     * clone. A span the mutation left as it was is not written back at all: that would only add
+     * an undo step with nothing in it. Returns the caret position resolved against the live
+     * container, if it can still be found there.
      */
     const commitSpan = (
       container: HTMLElement,
       from: number,
       to: number,
-      mutate: (draft: HTMLElement) => Node | undefined
-    ): Node | null => {
+      mutate: (draft: HTMLElement) => CaretAnchor | undefined
+    ): { node: Node, offset: number | null } | null => {
       const content = contentRef.current
       const selection = content?.ownerDocument.defaultView?.getSelection()
 
@@ -661,8 +668,15 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         draft.appendChild(container.childNodes[index].cloneNode(true))
       }
 
+      const before = draft.innerHTML
       const anchor = mutate(draft)
-      const anchorPath = isNil(anchor) ? null : nodePath(draft, anchor)
+
+      if (draft.innerHTML === before) {
+        return null
+      }
+
+      const anchorNode = isNil(anchor) ? null : 'after' in anchor ? anchor.after : anchor.within
+      const anchorPath = isNil(anchorNode) ? null : nodePath(draft, anchorNode)
 
       const range = doc.createRange()
 
@@ -672,13 +686,15 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       selection.addRange(range)
       doc.execCommand('insertHTML', false, draft.innerHTML)
 
-      if (isNil(anchorPath) || anchorPath.length === 0) {
+      if (isNil(anchor) || isNil(anchorPath) || anchorPath.length === 0) {
         return null
       }
 
       // the clone's children sit at `from` onwards in the container; should the commit above
       // have reshaped anything on the way in, the path may no longer lead anywhere
-      return nodeAtPath(container, [anchorPath[0] + from, ...anchorPath.slice(1)])
+      const node = nodeAtPath(container, [anchorPath[0] + from, ...anchorPath.slice(1)])
+
+      return isNil(node) ? null : { node, offset: 'after' in anchor ? null : anchor.offset }
     }
 
     interface UnitPlan {
@@ -703,13 +719,13 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      *
      * `mutate` runs once per span on a clone of that span, with the range clipped to it and
      * located in the clone, and `locate` finding the clone of any live node within the span. It
-     * returns the node to leave the caret after, if any. Returns that node for the last span in
-     * document order — the caret ends up after it, or at the end of that span when it yielded
-     * none.
+     * returns where to leave the caret, if anywhere in particular. Returns the node that position
+     * refers to for the last span in document order — the caret ends up there, or at the end of
+     * that span when it named none.
      */
     const commitAround = (
       range: Range,
-      mutate: (draft: HTMLElement, draftRange: Range, locate: (node: Node) => Node | null) => Node | undefined
+      mutate: (draft: HTMLElement, draftRange: Range, locate: (node: Node) => Node | null) => CaretAnchor | undefined
     ): Node | null => {
       const content = contentRef.current
       const selection = content?.ownerDocument.defaultView?.getSelection()
@@ -751,7 +767,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
 
       const plans = spansToCommit(container, range).map((span) => plan(span.container, span.from, span.to))
 
-      const commitPlan = (unit: UnitPlan): Node | null =>
+      const commitPlan = (unit: UnitPlan): { node: Node, offset: number | null } | null =>
         commitSpan(unit.container, unit.from, unit.to, (draft) => {
           // a position in the container, as the clone of just its span sees it: the span's first
           // child is the clone's first, and the container itself stands in for the clone
@@ -785,14 +801,16 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       // the node after the last unit's span, held on to while the others are committed: the
       // caret falls back to just before it when the unit yields nothing to place the caret after
       const afterLast: ChildNode | null = last.container.childNodes[last.to] ?? null
-      const caretNode = commitPlan(last)
+      const caret = commitPlan(last)
 
       earlier.forEach((unit) => { commitPlan(unit) })
 
       const caretRange = doc.createRange()
 
-      if (!isNil(caretNode)) {
-        caretRange.setStartAfter(caretNode)
+      if (!isNil(caret) && !isNil(caret.offset)) {
+        caretRange.setStart(caret.node, caret.offset)
+      } else if (!isNil(caret)) {
+        caretRange.setStartAfter(caret.node)
       } else {
         const afterIndex = isNil(afterLast) ? -1 : Array.prototype.indexOf.call(last.container.childNodes, afterLast)
 
@@ -803,7 +821,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       selection.removeAllRanges()
       selection.addRange(caretRange)
 
-      return caretNode
+      return caret?.node ?? null
     }
 
     const handleCommand = (command: string, argument?: string): void => {
@@ -862,18 +880,42 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         const markRange = doc.createRange()
 
         markRange.selectNode(existingMark)
-        commitAround(markRange, (_draft, _draftRange, locate) => {
+        commitAround(markRange, (draft, _draftRange, locate) => {
           const draftMark = locate(existingMark)
 
           if (!(draftMark instanceof HTMLElement)) {
             return undefined
           }
 
-          const last = draftMark.lastChild
+          const children = Array.from(draftMark.childNodes)
+          const last = children[children.length - 1]
 
-          draftMark.replaceWith(...Array.from(draftMark.childNodes))
+          draftMark.replaceWith(...children)
 
-          return last ?? undefined
+          if (isNil(last)) {
+            return undefined
+          }
+
+          if (!(last instanceof Text)) {
+            draft.normalize()
+
+            return { after: last }
+          }
+
+          // The text set free now sits between text nodes, and all of them come back from the
+          // commit as one — so the caret is kept as an offset into that run, measured from the
+          // first node of it, which is the one `normalize` keeps.
+          let run: Text = last
+          let offset = last.length
+
+          while (run.previousSibling instanceof Text) {
+            run = run.previousSibling
+            offset += run.length
+          }
+
+          draft.normalize()
+
+          return { within: run, offset }
         })
       } else if (range.collapsed) {
         // no selection to wrap — let the browser handle "type the next characters marked"
@@ -895,7 +937,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
           // in this same undoable step.
           normalizeNestedLists(draft)
 
-          return wrapper ?? undefined
+          return isNil(wrapper) ? undefined : { after: wrapper }
         })
 
         // To the browser's typing style, a caret directly after the new element is still inside

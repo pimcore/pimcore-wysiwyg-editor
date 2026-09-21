@@ -1140,4 +1140,104 @@ describe('CustomWysiwygEditor commit granularity', () => {
 
     expect(onChange).toHaveBeenLastCalledWith('<p>Before <b>Bold</b> After</p>')
   })
+
+  it('writes a paragraph the browser left a list in after its text back whole', () => {
+    // measured against Chromium: written back whole it lifts the list out itself, while the
+    // text run written back alone picks up a stray <br> before the list
+    const { onChange, content } = renderEditor('<p>Before Bold After</p>')
+    const execCommand = installExecCommand(content)
+    const paragraph = content.querySelector('p')
+    const list = document.createElement('ul')
+    list.innerHTML = '<li>x</li>'
+    paragraph?.appendChild(list)
+    const textNode = paragraph?.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 7)
+    range.setEnd(textNode, 11)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(committedHtml(execCommand)).toEqual(['Before <b>Bold</b> After<ul><li>x</li></ul>'])
+    const emitted = (onChange.mock.calls[onChange.mock.calls.length - 1] as [string])[0]
+    expect(emitted).toContain('<b>Bold</b>')
+    expect(emitted.match(/<li>x<\/li>/g)).toHaveLength(1)
+  })
+
+  it('does not write back, and so adds no undo step, for a span the mark left unchanged', () => {
+    const { content } = renderEditor('<p>text</p><p></p>')
+    const execCommand = installExecCommand(content)
+    const textNode = content.querySelector('p')?.firstChild
+    const emptyParagraph = content.querySelectorAll('p')[1]
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 0)
+    range.setEnd(emptyParagraph, 0)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+    expect(content.innerHTML).toBe('<p><b>text</b></p><p></p>')
+    expect(committedHtml(execCommand)).toEqual(['<b>text</b>'])
+
+    // the one step there is undoes the formatting itself, not an empty write-back first
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+    expect(content.innerHTML).toBe('<p>text</p><p></p>')
+  })
+
+  it('does not write anything back when a void element is all that is selected', () => {
+    const { content } = renderEditor('<p>text</p><hr>')
+    const execCommand = installExecCommand(content)
+    const rule = content.querySelector('hr')
+
+    if (rule == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.selectNode(rule)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(committedHtml(execCommand)).toEqual([])
+  })
+
+  it('leaves the caret right after the text an unwrapped mark set free, not at the end of the block', () => {
+    const { content } = renderEditor('<p>Before <b>Bold</b> After</p>')
+    installExecCommand(content)
+    const boldText = content.querySelector('b')?.firstChild
+
+    if (boldText == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(boldText, 2)
+    range.collapse(true)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    const after = document.getSelection()?.getRangeAt(0)
+    const paragraph = content.querySelector('p')
+
+    expect(content.innerHTML).toBe('<p>Before Bold After</p>')
+    // the three text nodes come back as one: the position is an offset into it, right after "Bold"
+    expect(after?.collapsed).toBe(true)
+    expect(after?.startContainer).toBe(paragraph?.firstChild)
+    expect(after?.startOffset).toBe(11)
+  })
 })
