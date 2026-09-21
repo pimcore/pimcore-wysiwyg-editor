@@ -1323,4 +1323,35 @@ describe('CustomWysiwygEditor commit granularity', () => {
       style.remove()
     }
   })
+
+  it('keeps a nested list intact in a paragraph the browser left it in after the text', () => {
+    // measured against Chromium end to end: written back whole, the list is lifted out of the
+    // paragraph with its nesting intact — for a properly nested list as much as for the
+    // list-beside-item shape indent produces, which the span's own repair nests first
+    const { onChange, content } = renderEditor('<p>Before Bold After</p>')
+    const execCommand = installExecCommand(content)
+    const paragraph = content.querySelector('p')
+    const list = document.createElement('ul')
+    list.innerHTML = '<li>a</li><ul><li>b</li></ul>'
+    paragraph?.appendChild(list)
+    const textNode = paragraph?.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 7)
+    range.setEnd(textNode, 11)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(committedHtml(execCommand)).toEqual(['Before <b>Bold</b> After<ul><li>a<ul><li>b</li></ul></li></ul>'])
+    const emitted = (onChange.mock.calls[onChange.mock.calls.length - 1] as [string])[0]
+    expect(emitted).toContain('<b>Bold</b>')
+    expect(emitted).toContain('<li>a<ul><li>b</li></ul></li>')
+    expect(emitted.match(/<li>/g)).toHaveLength(2)
+  })
 })
