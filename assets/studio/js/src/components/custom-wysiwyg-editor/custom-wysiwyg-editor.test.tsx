@@ -25,11 +25,52 @@ const MUTATING_COMMANDS = ['insertText', 'insertHorizontalRule', 'insertHTML']
  * anything to redo, 'undo' restores the last snapshot (saving the current state to redo back to),
  * and 'redo' does the reverse — the way the real history the editor relies on would.
  */
+const MARK_TAGS: Record<string, string[]> = { bold: ['B', 'STRONG'], italic: ['I', 'EM'] }
+
 const installExecCommand = (content: HTMLElement): jest.Mock => {
   const history: string[] = []
   const future: string[] = []
 
+  // Chrome carries an inline mark over to whatever is typed right after it: a caret directly
+  // after a <b> reports bold as active, and a collapsed 'bold' command flips that typing style
+  // without touching the document. Measured against Chrome directly.
+  const typingStyle: Partial<Record<string, boolean>> = {}
+
+  const inheritsMark = (command: string): boolean => {
+    const selection = content.ownerDocument.getSelection()
+    const tags = MARK_TAGS[command]
+
+    if (selection === null || selection.rangeCount === 0 || tags === undefined) {
+      return false
+    }
+
+    const { startContainer, startOffset } = selection.getRangeAt(0)
+    let current: Node | null = startContainer.nodeType === Node.TEXT_NODE
+      ? startContainer
+      : startContainer.childNodes[startOffset - 1] ?? null
+
+    while (current !== null && current !== content) {
+      if (tags.includes(current.nodeName)) {
+        return true
+      }
+
+      current = current.parentNode
+    }
+
+    return false
+  }
+
+  const queryCommandState = jest.fn((command: string): boolean => typingStyle[command] ?? inheritsMark(command))
+
+  Object.defineProperty(document, 'queryCommandState', { value: queryCommandState, configurable: true })
+
   const execCommand = jest.fn((command: string, _ui?: boolean, argument?: string) => {
+    if (command in MARK_TAGS && content.ownerDocument.getSelection()?.isCollapsed === true) {
+      typingStyle[command] = !queryCommandState(command)
+
+      return true
+    }
+
     if (command === 'undo') {
       const previous = history.pop()
 
@@ -651,7 +692,7 @@ describe('CustomWysiwygEditor bold next to whitespace', () => {
 
   it('does not throw when a void element is all that is selected', () => {
     const { content } = renderEditor('<p>text</p><hr>')
-    installExecCommand(content)
+    const execCommand = installExecCommand(content)
     const rule = content.querySelector('hr')
 
     if (rule == null) {
@@ -667,6 +708,8 @@ describe('CustomWysiwygEditor bold next to whitespace', () => {
     expect(() => {
       fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
     }).not.toThrow()
+    // nothing was marked, so there is no typing style to switch back off either
+    expect(execCommand).not.toHaveBeenCalledWith('bold')
   })
 
   it('leaves a list the browser left inside a paragraph intact when bolding elsewhere', () => {
@@ -773,5 +816,68 @@ describe('CustomWysiwygEditor bold next to whitespace', () => {
     expect(onChange).toHaveBeenLastCalledWith(
       '<ul><li><b>before</b><ul><li><b>child</b></li></ul><b>after</b></li></ul>'
     )
+  })
+})
+
+describe('CustomWysiwygEditor typing after a fresh mark', () => {
+  const selectWord = (content: HTMLElement, blockSelector: string): void => {
+    const textNode = content.querySelector(blockSelector)?.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 7)
+    range.setEnd(textNode, 11)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  }
+
+  it.each([
+    ['bold', 'b'],
+    ['italic', 'i']
+  ])('keeps what is typed right after a word just made %s plain', (mark, tag) => {
+    const { content } = renderEditor('<p>Before Bold</p>')
+    const execCommand = installExecCommand(content)
+    selectWord(content, 'p')
+
+    fireEvent.click(screen.getByRole('button', { name: `wysiwyg-editor.toolbar.${mark}` }))
+
+    expect(content.innerHTML).toBe(`<p>Before <${tag}>Bold</${tag}></p>`)
+    // the browser would carry the mark on to the next characters typed, turning the rest of the
+    // sentence bold as well — the editor switches that typing style off again right away
+    expect(execCommand).toHaveBeenLastCalledWith(mark)
+    expect(document.queryCommandState(mark)).toBe(false)
+  })
+
+  it('leaves the typing style alone inside a heading that is bold by itself', () => {
+    const style = document.createElement('style')
+    style.textContent = 'h2 { font-weight: 700; }'
+    document.head.appendChild(style)
+
+    try {
+      const { content } = renderEditor('<h2>Before Bold After</h2>')
+      const execCommand = installExecCommand(content)
+      const heading = content.querySelector('h2')
+
+      if (heading == null) {
+        throw new Error('content not rendered')
+      }
+
+      // the guard reads the computed style, so the rule above has to have reached the heading
+      expect(getComputedStyle(heading).fontWeight).toBe('700')
+      selectWord(content, 'h2')
+
+      fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+      expect(content.innerHTML).toBe('<h2>Before <b>Bold</b> After</h2>')
+      // "off" here would not mean plain: the browser would wrap the next characters in a
+      // span{font-weight:normal} to get below the heading's own weight
+      expect(execCommand).not.toHaveBeenCalledWith('bold')
+    } finally {
+      style.remove()
+    }
   })
 })

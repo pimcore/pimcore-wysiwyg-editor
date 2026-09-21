@@ -23,6 +23,7 @@ import {
   findEnclosingLink,
   findInlineMark,
   findListItem,
+  isBoldWeight,
   resolveSelectionStartNode,
   useEditorSelection,
   type InlineMark
@@ -93,6 +94,18 @@ const INLINE_TAGS = new Set([
 /** Whether `node` is an element the wrap has to stay inside rather than enclose. */
 const isBlockElement = (node: Node): node is HTMLElement =>
   node instanceof HTMLElement && !INLINE_TAGS.has(node.tagName)
+
+/** Whether what surrounds `element` renders `mark` by itself — a heading's own weight, say. */
+const isMarkInherited = (element: Node, mark: InlineMark): boolean => {
+  const parent = element.parentElement
+  const style = parent?.ownerDocument.defaultView?.getComputedStyle(parent)
+
+  if (isNil(style)) {
+    return false
+  }
+
+  return mark === 'bold' ? isBoldWeight(style.fontWeight) : style.fontStyle === 'italic'
+}
 
 /**
  * Whether position (`nodeA`, `offsetA`) comes strictly before (`nodeB`, `offsetB`) in document
@@ -527,12 +540,12 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * content in a state that never existed. Mutating a copy and writing it back through
      * `insertHTML` records one ordinary, undoable step.
      */
-    const mutateWithHistory = (target: HTMLElement, mutate: (draft: HTMLElement) => number[] | void): void => {
+    const mutateWithHistory = (target: HTMLElement, mutate: (draft: HTMLElement) => number[] | void): Node | null => {
       const content = contentRef.current
       const selection = content?.ownerDocument.defaultView?.getSelection()
 
       if (isNil(content) || isNil(selection)) {
-        return
+        return null
       }
 
       const doc = content.ownerDocument
@@ -556,20 +569,26 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       selection.addRange(range)
       doc.execCommand('insertHTML', false, target === content ? draft.innerHTML : draft.outerHTML)
 
-      if (Array.isArray(caretAfterPath)) {
-        const caretNode = nodeAtPath(target, caretAfterPath)
-
-        // the path is worked out against the clone; should the commit above have reshaped
-        // anything on the way in, it may no longer lead anywhere, and the caret stays put
-        if (!isNil(caretNode)) {
-          const caretRange = doc.createRange()
-
-          caretRange.setStartAfter(caretNode)
-          caretRange.collapse(true)
-          selection.removeAllRanges()
-          selection.addRange(caretRange)
-        }
+      if (!Array.isArray(caretAfterPath)) {
+        return null
       }
+
+      const caretNode = nodeAtPath(target, caretAfterPath)
+
+      // the path is worked out against the clone; should the commit above have reshaped
+      // anything on the way in, it may no longer lead anywhere, and the caret stays put
+      if (isNil(caretNode)) {
+        return null
+      }
+
+      const caretRange = doc.createRange()
+
+      caretRange.setStartAfter(caretNode)
+      caretRange.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(caretRange)
+
+      return caretNode
     }
 
     const handleCommand = (command: string, argument?: string): void => {
@@ -646,7 +665,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         const endPath = nodePath(content, range.endContainer)
         const endOffset = range.endOffset
 
-        mutateWithHistory(content, (draft) => {
+        const wrapper = mutateWithHistory(content, (draft) => {
           const draftStart = nodeAtPath(draft, startPath)
           const draftEnd = nodeAtPath(draft, endPath)
 
@@ -670,6 +689,15 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
           // same element wherever it ended up, while a path taken earlier could point elsewhere
           return isNil(wrapper) ? undefined : nodePath(draft, wrapper)
         })
+
+        // To the browser's typing style, a caret directly after the new element is still inside
+        // it, so the rest of the sentence would come out marked as well. Switched off again with
+        // the same command the collapsed branch above uses to switch it on — unless the
+        // surroundings render the mark by themselves, a heading's weight say, where "off" would
+        // mean a span{font-weight:normal} around the next characters rather than plain text.
+        if (!isNil(wrapper) && doc.queryCommandState(mark) && !isMarkInherited(wrapper, mark)) {
+          doc.execCommand(mark)
+        }
       }
 
       emitChange()

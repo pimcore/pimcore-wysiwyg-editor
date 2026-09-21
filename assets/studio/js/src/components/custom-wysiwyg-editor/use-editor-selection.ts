@@ -80,7 +80,7 @@ const queryState = (doc: Document, command: string): boolean => {
   }
 }
 
-const isBoldWeight = (weight: string): boolean => {
+export const isBoldWeight = (weight: string): boolean => {
   if (weight === 'bold' || weight === 'bolder') {
     return true
   }
