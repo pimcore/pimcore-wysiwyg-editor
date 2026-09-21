@@ -73,44 +73,170 @@ const nodePath = (root: Node, node: Node): number[] => {
 const nodeAtPath = (root: Node, path: number[]): Node =>
   path.reduce<Node>((node, index) => node.childNodes[index], root)
 
-const BLOCK_TAGS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE'])
+// DIV is included because the browser's own editing commands fall back to it as a paragraph
+// container (see the block-tag list `use-editor-selection.ts` matches for the same reason), and
+// because the code view accepts arbitrary HTML, so content built outside the toolbar can use it.
+// UL/OL are block-level too, and matter here specifically: without them, a range crossing into a
+// nested list resolves to the LI inside it, whose *own* parent is that list rather than the
+// element actually holding the two text runs either side of it, breaking every index computed
+// from there.
+const BLOCK_TAGS = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'UL', 'OL'])
 
-/** The nearest block-level ancestor of `node`, up to and including `root` itself. */
-const closestBlock = (node: Node, root: Node): Node => {
-  let current: Node | null = node.nodeType === Node.TEXT_NODE ? node.parentNode : node
+/**
+ * Whether position (`nodeA`, `offsetA`) comes strictly before (`nodeB`, `offsetB`) in document
+ * order — the two boundary points of a `Range`, in general, since one is free to sit inside an
+ * element the other is only adjacent to. Delegates to a `Range` already correctly handling that,
+ * rather than walking the tree by hand.
+ */
+const isBeforePosition = (doc: Document, nodeA: Node, offsetA: number, nodeB: Node, offsetB: number): boolean => {
+  const reference = doc.createRange()
+
+  reference.setStart(nodeA, offsetA)
+  reference.collapse(true)
+
+  return reference.comparePoint(nodeB, offsetB) > 0
+}
+
+/**
+ * The position (`container`, `offset`) reaches into going forward — the same position if it is
+ * already inside a text node, or the first text-node position found by descending into whatever
+ * sits at `offset` when it is an element boundary instead (an empty element bottoms out where it
+ * is, with nothing further to descend into).
+ */
+const descendForward = (container: Node, offset: number): { node: Node, offset: number } => {
+  let current = container
+  let currentOffset = offset
+
+  while (current.nodeType !== Node.TEXT_NODE) {
+    const child = current.childNodes[currentOffset]
+
+    if (isNil(child)) {
+      return { node: current, offset: currentOffset }
+    }
+
+    current = child
+    currentOffset = 0
+  }
+
+  return { node: current, offset: currentOffset }
+}
+
+/** The same as {@link descendForward}, but towards the position just before `offset`. */
+const descendBackward = (container: Node, offset: number): { node: Node, offset: number } => {
+  let current = container
+  let currentOffset = offset
+
+  while (current.nodeType !== Node.TEXT_NODE) {
+    const child = current.childNodes[currentOffset - 1]
+
+    if (isNil(child)) {
+      return { node: current, offset: currentOffset }
+    }
+
+    current = child
+    currentOffset = child.nodeType === Node.TEXT_NODE ? (child as Text).length : child.childNodes.length
+  }
+
+  return { node: current, offset: currentOffset }
+}
+
+/** The deepest block-level element containing both `nodeA` and `nodeB`, or `null` when none does
+ *  (a bare field with no recognized block structure at all). */
+const closestSharedBlock = (nodeA: Node, nodeB: Node, root: HTMLElement): HTMLElement | null => {
+  let current: Node | null = nodeA
 
   while (!isNil(current) && current !== root) {
-    if (current instanceof HTMLElement && BLOCK_TAGS.has(current.tagName)) {
+    if (current instanceof HTMLElement && BLOCK_TAGS.has(current.tagName) && current.contains(nodeB)) {
       return current
     }
 
     current = current.parentNode
   }
 
-  return root
+  return null
 }
 
 /**
- * Wraps `range` in a `tagName` element, splitting the wrap one block at a time when the range
- * spans more than one. `Range.extractContents()` preserves the ancestor structure of whatever it
- * spans, so wrapping a cross-block range in a single inline element the ordinary way would nest
- * block content — a paragraph, say — inside it; wrapping it back up on reinsertion is not
- * something a browser's HTML parser can make sense of either. Splitting first keeps each wrapper
- * inside the one block it belongs to, which is both valid markup and what a reader would expect:
- * each paragraph gets its own run of bold text.
+ * Wraps `range` in a `tagName` element, splitting the wrap around every block-level element the
+ * range at least partly overlaps without fully containing — a sibling block entirely, or one
+ * nested inside the block the range's endpoints share. Wrapping a range spanning such a block in
+ * one inline element the ordinary way would nest that block's content inside it, via
+ * `extractContents()` preserving the ancestor structure of whatever it spans — markup a browser's
+ * HTML parser cannot make sense of on the way back in. A block the range only partly reaches into
+ * keeps just the part it actually covers; one entirely inside the range — a nested list sitting
+ * between two runs of the same list item, say — is wrapped whole, recursing in case it holds a
+ * further nested block of its own.
+ *
+ * `range` is read once, right away: every mutation below removes something the range's own
+ * boundaries can point into, and a live `Range` silently re-anchors itself the moment that
+ * happens, so re-reading it partway through would see a boundary this function never set.
  *
  * Returns the path to the last wrapper inserted, so the caret can be placed after it once this
  * runs on a clone and the result is committed to the live document.
  */
 const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagName: string): number[] => {
-  const startBlock = closestBlock(range.startContainer, root)
-  const endBlock = closestBlock(range.endContainer, root)
+  const startContainer = range.startContainer
+  const startOffset = range.startOffset
+  const endContainer = range.endContainer
+  const endOffset = range.endOffset
 
-  if (startBlock === endBlock) {
+  // the leaf positions these boundaries actually reach, used only to test whether a candidate
+  // block holds them — an element-boundary range (selecting a whole element, or every child of
+  // the field itself) would otherwise never register as "inside" anything
+  const startLeaf = descendForward(startContainer, startOffset)
+  const endLeaf = descendBackward(endContainer, endOffset)
+
+  const crossedBlocks: HTMLElement[] = []
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (node) =>
+      node instanceof HTMLElement && BLOCK_TAGS.has(node.tagName) && range.intersectsNode(node)
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_SKIP
+  })
+  let node = walker.nextNode()
+
+  while (!isNil(node)) {
+    const element = node as HTMLElement
+    // a block already inside one already collected gets handled when that one recurses into it
+    const alreadyCovered = crossedBlocks.some((existing) => existing.contains(element))
+
+    if (!alreadyCovered && !(element.contains(startLeaf.node) && element.contains(endLeaf.node))) {
+      crossedBlocks.push(element)
+    }
+
+    node = walker.nextNode()
+  }
+
+  const wrapDirectly = (target: Range): Element => {
     const wrapper = doc.createElement(tagName)
 
-    wrapper.appendChild(range.extractContents())
-    range.insertNode(wrapper)
+    wrapper.appendChild(target.extractContents())
+    target.insertNode(wrapper)
+
+    return wrapper
+  }
+
+  if (crossedBlocks.length === 0) {
+    // the block both ends already share, if any — using its own edges rather than `range` as it
+    // stands keeps a single recognized block (the whole of a one-paragraph field, selected end to
+    // end) from having its own element wrapped whole, rather than just the text inside it
+    const sharedBlock = closestSharedBlock(startLeaf.node, endLeaf.node, root)
+    let scoped = range
+
+    if (!isNil(sharedBlock)) {
+      const startBoundary = sharedBlock.contains(startContainer)
+        ? { node: startContainer, offset: startOffset }
+        : { node: sharedBlock as Node, offset: 0 }
+      const endBoundary = sharedBlock.contains(endContainer)
+        ? { node: endContainer, offset: endOffset }
+        : { node: sharedBlock as Node, offset: sharedBlock.childNodes.length }
+
+      scoped = doc.createRange()
+      scoped.setStart(startBoundary.node, startBoundary.offset)
+      scoped.setEnd(endBoundary.node, endBoundary.offset)
+    }
+
+    const wrapper = wrapDirectly(scoped)
 
     // extractContents leaves an empty text node behind exactly where mutateWithHistory's own
     // insertHTML earlier did — normalizing drops it, matching what the string round trip through
@@ -120,62 +246,88 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
     return nodePath(root, wrapper)
   }
 
-  // one text node at a time, grouped by the block each belongs to, so a run split across inline
-  // elements within the same block (already bold text, a link) still becomes one wrapper per block
-  // rather than one per text node
-  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
-  })
-
-  const blockOrder: Node[] = []
-  const textNodesByBlock = new Map<Node, Text[]>()
-  let current = walker.nextNode()
-
-  while (!isNil(current)) {
-    const block = closestBlock(current, root)
-    const nodes = textNodesByBlock.get(block)
-
-    if (isNil(nodes)) {
-      textNodesByBlock.set(block, [current as Text])
-      blockOrder.push(block)
-    } else {
-      nodes.push(current as Text)
+  const wrapIfNonEmpty = (startNode: Node, startPos: number, endNode: Node, endPos: number): Element | null => {
+    if (!isBeforePosition(doc, startNode, startPos, endNode, endPos)) {
+      return null
     }
 
-    current = walker.nextNode()
+    const segment = doc.createRange()
+
+    segment.setStart(startNode, startPos)
+    segment.setEnd(endNode, endPos)
+
+    return wrapDirectly(segment)
   }
 
-  // an element reference survives `normalize()` below even though its position among siblings
-  // can shift — unlike a path computed before it, which could end up pointing at the wrong node
-  let lastWrapper: Element | null = null
+  let lastWrapper: Element = crossedBlocks[0]
+  let cursorNode: Node = startContainer
+  let cursorOffset: number = startOffset
+  let endHandled = false
 
-  for (const block of blockOrder) {
-    const textNodes = textNodesByBlock.get(block)
+  for (const block of crossedBlocks) {
+    const parent = block.parentNode
 
-    if (isNil(textNodes) || textNodes.length === 0) {
+    if (isNil(parent)) {
       continue
     }
 
-    const first = textNodes[0]
-    const last = textNodes[textNodes.length - 1]
-    const blockRange = doc.createRange()
+    // the part of the range before reaching this block, if the cursor is not already inside it
+    const before = wrapIfNonEmpty(cursorNode, cursorOffset, parent, Array.prototype.indexOf.call(parent.childNodes, block))
 
-    blockRange.setStart(first, first === range.startContainer ? range.startOffset : 0)
-    blockRange.setEnd(last, last === range.endContainer ? range.endOffset : last.length)
+    if (!isNil(before)) {
+      lastWrapper = before
+    }
 
-    const wrapper = doc.createElement(tagName)
+    // that wrap can leave an empty text node behind next to `block`, throwing off every index
+    // computed against `parent` below — settle it before reading any of them
+    parent.normalize()
 
-    wrapper.appendChild(blockRange.extractContents())
-    blockRange.insertNode(wrapper)
+    // the range's own overlap with this block's content: reaching in from the range's own start
+    // (or out to its own end) when that boundary sits inside the block, its own full content
+    // otherwise — covering both a block only partly reached into and one entirely inside the
+    // range, sitting between the range's real endpoints without either landing inside it
+    const endsInBlock = block.contains(endContainer)
 
-    lastWrapper = wrapper
+    if (endsInBlock) {
+      endHandled = true
+    }
+
+    const startBoundary = block.contains(startContainer)
+      ? { node: startContainer, offset: startOffset }
+      : { node: block as Node, offset: 0 }
+    const endBoundary = endsInBlock
+      ? { node: endContainer, offset: endOffset }
+      : { node: block as Node, offset: block.childNodes.length }
+
+    const innerRange = doc.createRange()
+
+    innerRange.setStart(startBoundary.node, startBoundary.offset)
+    innerRange.setEnd(endBoundary.node, endBoundary.offset)
+
+    if (!innerRange.collapsed) {
+      const innerPath = wrapRangeByBlock(doc, block, innerRange, tagName)
+
+      lastWrapper = nodeAtPath(block, innerPath) as Element
+    }
+
+    parent.normalize()
+    cursorNode = parent
+    cursorOffset = Array.prototype.indexOf.call(parent.childNodes, block) + 1
   }
 
-  // see the single-block branch above: without this, a path computed here can point at a position
-  // the string round trip through insertHTML never reproduces
+  // skipped once the last block's own overlap already reached the range's real end — trying it
+  // again here would read a node that block's own wrap already removed from the document
+  if (!endHandled) {
+    const after = wrapIfNonEmpty(cursorNode, cursorOffset, endContainer, endOffset)
+
+    if (!isNil(after)) {
+      lastWrapper = after
+    }
+  }
+
   root.normalize()
 
-  return nodePath(root, lastWrapper ?? startBlock)
+  return nodePath(root, lastWrapper)
 }
 
 export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(

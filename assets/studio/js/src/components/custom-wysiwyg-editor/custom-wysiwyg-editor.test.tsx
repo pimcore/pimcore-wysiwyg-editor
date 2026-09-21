@@ -514,4 +514,84 @@ describe('CustomWysiwygEditor bold next to whitespace', () => {
       '<p>First <b>paragraph text</b></p><p><b>Second</b> paragraph text</p>'
     )
   })
+
+  it('bolds every paragraph independently when the whole field is selected', () => {
+    const { onChange, content } = renderEditor('<p>First</p><p>Second</p>')
+    installExecCommand(content)
+
+    const range = document.createRange()
+    range.selectNodeContents(content)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p><b>First</b></p><p><b>Second</b></p>')
+  })
+
+  it('bolds only the text of a single selected paragraph, not the paragraph element itself', () => {
+    const { onChange, content } = renderEditor('<p>Only</p>')
+    installExecCommand(content)
+
+    const range = document.createRange()
+    range.selectNodeContents(content)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p><b>Only</b></p>')
+  })
+
+  it('bolds across two div blocks the same way as two paragraphs', () => {
+    const { onChange, content } = renderEditor('<div>First</div><div>Second</div>')
+    installExecCommand(content)
+    const divs = content.querySelectorAll('div')
+    const firstText = divs[0].firstChild
+    const secondText = divs[1].firstChild
+
+    if (firstText == null || secondText == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(firstText, 2)
+    range.setEnd(secondText, 3)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<div>Fi<b>rst</b></div><div><b>Sec</b>ond</div>')
+  })
+
+  it('bolds around a nested list sitting inside the same list item as both ends of the selection', () => {
+    const { onChange, content } = renderEditor('<ul><li>before<ul><li>child</li></ul>after</li></ul>')
+    installExecCommand(content)
+    const outerLi = content.querySelector('li')
+    const beforeText = outerLi?.firstChild
+    const afterText = outerLi?.lastChild
+
+    if (beforeText == null || afterText == null || afterText.textContent == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(beforeText, 0)
+    range.setEnd(afterText, afterText.textContent.length)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    // "before" and "after" each get their own <b>, and the nested list keeps its own structure —
+    // "child" bolded inside it, rather than the whole <ul> ending up nested inside a <b>
+    expect(onChange).toHaveBeenLastCalledWith(
+      '<ul><li><b>before</b><ul><li><b>child</b></li></ul><b>after</b></li></ul>'
+    )
+  })
 })
