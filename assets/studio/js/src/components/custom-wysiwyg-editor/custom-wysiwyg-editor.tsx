@@ -620,11 +620,14 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * starts inside a block, or with inline nodes, is written back as given. Replacing one
      * block's own contents, or one run of inline nodes between blocks, therefore never begins with
      * a block. It also keeps the container as a live reference, so a path worked out against the
-     * clone resolves against it once committed.
+     * clone resolves against it once committed. One reshaping remains, and is left as it is: an
+     * attribute-less div wrapping blocks at the very end of the field is dropped as redundant by
+     * the browser, its children staying in place — the wrapper it uses as its own paragraph
+     * separator, and nothing a reader can see.
      *
-     * `mutate` gets a clone of the whole container and returns the path, within that clone, of the
-     * node to leave the caret after — or nothing to leave the caret where the browser puts it.
-     * Returns the node the caret was placed after, if any.
+     * `mutate` gets a clone of the whole container and returns the path, within that clone, of a
+     * node to find again once committed — or nothing. Returns that node, resolved against the
+     * live container, if the path still leads to one.
      */
     const commitSpan = (
       container: HTMLElement,
@@ -667,17 +670,129 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         return null
       }
 
-      const caretNode = nodeAtPath(container, caretAfterPath)
-
       // the path is worked out against the clone; should the commit above have reshaped
-      // anything on the way in, it may no longer lead anywhere, and the caret stays put
-      if (isNil(caretNode)) {
+      // anything on the way in, it may no longer lead anywhere
+      return nodeAtPath(container, caretAfterPath)
+    }
+
+    interface UnitPlan {
+      container: HTMLElement
+      from: number
+      to: number
+      startPath: number[]
+      startOffset: number
+      endPath: number[]
+      endOffset: number
+    }
+
+    /**
+     * Applies `mutate` to the part of the field `range` reaches and commits it in as few, as
+     * narrow, spans as the browser handles cleanly — see {@link commitSpan}.
+     *
+     * The deepest block holding both ends of the range is the container to work in (the field
+     * itself when there is none). Its children are then committed one unit at a time — a block by
+     * its own contents, a run of inline nodes between blocks by its child-index span — unless the
+     * container begins with inline nodes: there is no block for the browser to make a shell of
+     * then, and an inline run written back on its own picks up a stray <br> before the block that
+     * follows it, so the whole container's contents go back in one piece.
+     *
+     * `mutate` runs once per unit on a clone of that unit's container, with the range clipped to
+     * the unit and located in the clone, and returns the path of the node to leave the caret
+     * after, if any. Returns that node for the last unit in document order — the caret ends up
+     * after it, or at the end of that unit when it yielded none.
+     */
+    const commitAround = (
+      range: Range,
+      mutate: (draft: HTMLElement, draftRange: Range, container: HTMLElement) => number[] | undefined
+    ): Node | null => {
+      const content = contentRef.current
+      const selection = content?.ownerDocument.defaultView?.getSelection()
+
+      if (isNil(content) || isNil(selection)) {
         return null
       }
 
+      const doc = content.ownerDocument
+      const startContainer = range.startContainer
+      const startOffset = range.startOffset
+      const endContainer = range.endContainer
+      const endOffset = range.endOffset
+      const startLeaf = descendForward(startContainer, startOffset)
+      const endLeaf = descendBackward(endContainer, endOffset)
+      const container = closestSharedBlock(startLeaf.node, endLeaf.node, content) ?? content
+      const firstChild: ChildNode | null = container.firstChild
+      const wholeContainer = isNil(firstChild) || !isBlockElement(firstChild)
+
+      // the range clipped to a span and located as paths — worked out for every unit before
+      // anything is committed, since writing one span back detaches the nodes the range's
+      // boundaries point into
+      const plan = (unitContainer: HTMLElement, from: number, to: number): UnitPlan => {
+        const start = isBeforePosition(doc, startContainer, startOffset, unitContainer, from)
+          ? { node: unitContainer as Node, offset: from }
+          : { node: startContainer, offset: startOffset }
+        const end = isBeforePosition(doc, unitContainer, to, endContainer, endOffset)
+          ? { node: unitContainer as Node, offset: to }
+          : { node: endContainer, offset: endOffset }
+
+        return {
+          container: unitContainer,
+          from,
+          to,
+          startPath: nodePath(unitContainer, start.node),
+          startOffset: start.offset,
+          endPath: nodePath(unitContainer, end.node),
+          endOffset: end.offset
+        }
+      }
+
+      const plans = wholeContainer
+        ? [plan(container, 0, container.childNodes.length)]
+        : topLevelUnits(container, range).map((unit) => isNil(unit.block)
+          ? plan(container, unit.from, unit.to)
+          : plan(unit.block, 0, unit.block.childNodes.length))
+
+      const commitPlan = (unit: UnitPlan): Node | null =>
+        commitSpan(unit.container, unit.from, unit.to, (draft) => {
+          const draftStart = nodeAtPath(draft, unit.startPath)
+          const draftEnd = nodeAtPath(draft, unit.endPath)
+
+          if (isNil(draftStart) || isNil(draftEnd)) {
+            return undefined
+          }
+
+          const draftRange = doc.createRange()
+
+          draftRange.setStart(draftStart, unit.startOffset)
+          draftRange.setEnd(draftEnd, unit.endOffset)
+
+          return mutate(draft, draftRange, unit.container)
+        })
+
+      // last to first: writing an inline run back can change how many nodes it holds, which
+      // would shift the indices of everything after it
+      const [last, ...earlier] = [...plans].reverse()
+
+      if (isNil(last)) {
+        return null
+      }
+
+      // the node after the last unit's span, held on to while the others are committed: the
+      // caret falls back to just before it when the unit yields nothing to place the caret after
+      const afterLast: ChildNode | null = last.container.childNodes[last.to] ?? null
+      const caretNode = commitPlan(last)
+
+      earlier.forEach((unit) => { commitPlan(unit) })
+
       const caretRange = doc.createRange()
 
-      caretRange.setStartAfter(caretNode)
+      if (!isNil(caretNode)) {
+        caretRange.setStartAfter(caretNode)
+      } else {
+        const afterIndex = isNil(afterLast) ? -1 : Array.prototype.indexOf.call(last.container.childNodes, afterLast)
+
+        caretRange.setStart(last.container, afterIndex >= 0 ? afterIndex : last.container.childNodes.length)
+      }
+
       caretRange.collapse(true)
       selection.removeAllRanges()
       selection.addRange(caretRange)
@@ -735,12 +850,25 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       const existingMark = findInlineMark(content, resolveSelectionStartNode(range), mark)
 
       if (!isNil(existingMark)) {
-        // unwrap the whole marked run — a simplification the "basic formatting" scope allows
+        // unwrap the whole marked run — a simplification the "basic formatting" scope allows.
+        // Committed the same way as a wrap: replacing the live element itself through insertHTML
+        // would promote the plain space beside it to &nbsp;, exactly as wrapping used to.
         const markRange = doc.createRange()
+
         markRange.selectNode(existingMark)
-        selection.removeAllRanges()
-        selection.addRange(markRange)
-        doc.execCommand('insertHTML', false, existingMark.innerHTML)
+        commitAround(markRange, (draft, _draftRange, container) => {
+          const draftMark = nodeAtPath(draft, nodePath(container, existingMark))
+
+          if (!(draftMark instanceof HTMLElement)) {
+            return undefined
+          }
+
+          const last = draftMark.lastChild
+
+          draftMark.replaceWith(...Array.from(draftMark.childNodes))
+
+          return isNil(last) ? undefined : nodePath(draft, last)
+        })
       } else if (range.collapsed) {
         // no selection to wrap — let the browser handle "type the next characters marked"
         doc.execCommand(mark)
@@ -748,114 +876,23 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         // Wrapping the selection directly through execCommand risks a browser quirk: replacing a
         // range that sits next to a plain space, or that spans a whole text node, can leave that
         // space — or an empty text node split off in its place — turned into a real &nbsp;, one a
-        // reader never typed. Building the wrap on a detached clone with the plain Range API next
-        // avoids the browser's own insertHTML behaviour entirely, and committing the finished
-        // result through `commitSpan` keeps undo and redo reverting and replaying that exact
-        // result, rather than an intermediate one — and lets the caret return to where the
-        // selection was.
-        const startContainer = range.startContainer
-        const startOffset = range.startOffset
-        const endContainer = range.endContainer
-        const endOffset = range.endOffset
-        const startLeaf = descendForward(startContainer, startOffset)
-        const endLeaf = descendBackward(endContainer, endOffset)
+        // reader never typed. Building the wrap on a detached clone with the plain Range API
+        // avoids the browser's own insertHTML behaviour entirely; committing the finished result
+        // keeps undo and redo reverting and replaying that exact result rather than an
+        // intermediate one, and lets the caret return to where the selection was.
+        const wrapper = commitAround(range, (draft, draftRange) => {
+          const wrapper = wrapRangeByBlock(doc, draft, draftRange, INLINE_MARKS[mark].tag)
 
-        // the block both ends sit in is all that needs committing; failing that, each top-level
-        // block or inline run the selection reaches is committed by itself — never the whole
-        // field, whose first block the browser would otherwise turn into a shell around the rest
-        const sharedBlock = closestSharedBlock(startLeaf.node, endLeaf.node, content)
-        const units: CommitUnit[] = isNil(sharedBlock)
-          ? topLevelUnits(content, range)
-          : [{ block: sharedBlock, from: 0, to: 0 }]
+          // A list the browser left beside its item rather than inside it does not survive being
+          // written back intact. The same repair the stored value already gets is applied to the
+          // clone first, so the shape being committed is one the reparse can keep, and it lands
+          // in this same undoable step.
+          normalizeNestedLists(draft)
 
-        // a field that begins with inline nodes has no block for the browser to make a shell of,
-        // and its inline run written back on its own picks up a stray <br> before the next block
-        const firstChild: ChildNode | null = content.firstChild
-        const wholeField = isNil(sharedBlock) && !isNil(firstChild) && !isBlockElement(firstChild)
-
-        interface UnitPlan {
-          container: HTMLElement
-          from: number
-          to: number
-          startPath: number[]
-          startOffset: number
-          endPath: number[]
-          endOffset: number
-        }
-
-        // the selection clipped to a span and located as paths — worked out for every unit before
-        // anything is committed, since writing one span back detaches the nodes the selection's
-        // boundaries point into
-        const plan = (container: HTMLElement, from: number, to: number): UnitPlan => {
-          const start = isBeforePosition(doc, startContainer, startOffset, container, from)
-            ? { node: container as Node, offset: from }
-            : { node: startContainer, offset: startOffset }
-          const end = isBeforePosition(doc, container, to, endContainer, endOffset)
-            ? { node: container as Node, offset: to }
-            : { node: endContainer, offset: endOffset }
-
-          return {
-            container,
-            from,
-            to,
-            startPath: nodePath(container, start.node),
-            startOffset: start.offset,
-            endPath: nodePath(container, end.node),
-            endOffset: end.offset
-          }
-        }
-
-        const commitPlan = (unit: UnitPlan): Node | null =>
-          commitSpan(unit.container, unit.from, unit.to, (draft) => {
-            const draftStart = nodeAtPath(draft, unit.startPath)
-            const draftEnd = nodeAtPath(draft, unit.endPath)
-
-            if (isNil(draftStart) || isNil(draftEnd)) {
-              return undefined
-            }
-
-            const draftRange = doc.createRange()
-            draftRange.setStart(draftStart, unit.startOffset)
-            draftRange.setEnd(draftEnd, unit.endOffset)
-
-            const wrapper = wrapRangeByBlock(doc, draft, draftRange, INLINE_MARKS[mark].tag)
-
-            // A list the browser left inside a paragraph does not survive being written back — a
-            // list item ends up orphaned. The same repair the stored value already gets is applied
-            // to the clone first, so the shape being committed is one the reparse can keep, and it
-            // lands in this same undoable step.
-            normalizeNestedLists(draft)
-
-            // read after that repair, which moves nodes around: the wrapper itself is still the
-            // same element wherever it ended up, while a path taken earlier could point elsewhere
-            return isNil(wrapper) ? undefined : nodePath(draft, wrapper)
-          })
-
-        const plans = wholeField
-          ? [plan(content, 0, content.childNodes.length)]
-          : units.map((unit) => isNil(unit.block)
-            ? plan(content, unit.from, unit.to)
-            : plan(unit.block, 0, unit.block.childNodes.length))
-
-        let wrapper: Node | null = null
-
-        // last to first: writing an inline run back can change how many nodes it holds, which
-        // would shift the indices of everything after it — and the caret belongs after the last
-        // wrapper in document order, which is the first one committed here
-        for (const unit of [...plans].reverse()) {
-          const committed = commitPlan(unit)
-
-          wrapper = wrapper ?? committed
-        }
-
-        if (!isNil(wrapper)) {
-          const caretRange = doc.createRange()
-
-          caretRange.setStartAfter(wrapper)
-          caretRange.collapse(true)
-          selection.removeAllRanges()
-          selection.addRange(caretRange)
-        }
+          // read after that repair, which moves nodes around: the wrapper itself is still the
+          // same element wherever it ended up, while a path taken earlier could point elsewhere
+          return isNil(wrapper) ? undefined : nodePath(draft, wrapper)
+        })
 
         // To the browser's typing style, a caret directly after the new element is still inside
         // it, so the rest of the sentence would come out marked as well. Switched off again with

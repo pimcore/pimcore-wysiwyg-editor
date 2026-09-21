@@ -108,27 +108,15 @@ const installExecCommand = (content: HTMLElement): jest.Mock => {
 
     if (command === 'insertHTML' && argument !== undefined) {
       const range = content.ownerDocument.getSelection()?.getRangeAt(0)
-      const template = content.ownerDocument.createElement('template')
-      template.innerHTML = argument
-
-      const boundaries = range === undefined
-        ? null
-        : {
-            beforeNode: range.startContainer,
-            beforeOffset: range.startOffset,
-            afterNode: range.endContainer,
-            afterOffset: range.endOffset
-          }
-
-      range?.deleteContents()
-      range?.insertNode(template.content)
 
       // Reproduces what Chrome actually does, measured against it directly: replacing a
       // selection promotes a plain space immediately beside the result to &nbsp;, to keep that
       // position from collapsing against whatever was just inserted. Only ever the one character
       // on each side, and only when the replaced range did not already cover it. Without this,
       // nothing here would fail if the fix that avoids the behaviour were taken back out.
-      if (boundaries !== null) {
+      // Done before the range is touched: the replacement is the same length, so the range's
+      // offsets stay valid, whereas afterwards the boundary nodes have been shortened or split.
+      if (range !== undefined) {
         const promote = (node: Node, index: number): void => {
           if (node.nodeType !== Node.TEXT_NODE) {
             return
@@ -142,21 +130,27 @@ const installExecCommand = (content: HTMLElement): jest.Mock => {
           }
         }
 
-        // the character just before where the replacement started, and just after where it ended
-        if (boundaries.beforeNode.nodeType === Node.TEXT_NODE && boundaries.beforeOffset === 0) {
-          const previous = boundaries.beforeNode.previousSibling
+        // the character just before where the replacement starts, and just after where it ends
+        if (range.startContainer.nodeType === Node.TEXT_NODE && range.startOffset === 0) {
+          const previous = range.startContainer.previousSibling
 
           if (previous !== null) {
             promote(previous, -1)
           }
-        } else if (boundaries.beforeNode.nodeType === Node.TEXT_NODE) {
-          promote(boundaries.beforeNode, boundaries.beforeOffset - 1)
+        } else if (range.startContainer.nodeType === Node.TEXT_NODE) {
+          promote(range.startContainer, range.startOffset - 1)
         }
 
-        if (boundaries.afterNode.nodeType === Node.TEXT_NODE) {
-          promote(boundaries.afterNode, boundaries.afterOffset)
+        if (range.endContainer.nodeType === Node.TEXT_NODE) {
+          promote(range.endContainer, range.endOffset)
         }
       }
+
+      const template = content.ownerDocument.createElement('template')
+      template.innerHTML = argument
+
+      range?.deleteContents()
+      range?.insertNode(template.content)
     }
 
     return true
@@ -985,5 +979,95 @@ describe('CustomWysiwygEditor commit granularity', () => {
     expect(after?.collapsed).toBe(true)
     expect(after?.startContainer).toBe(lastBold.parentNode)
     expect(after?.startOffset).toBe(1)
+  })
+
+  it('splits a shared block that itself begins with a block into units, never writing it back whole', () => {
+    const { onChange, content } = renderEditor('<div><h1>Title</h1><p>First</p><p>Second</p></div>')
+    const execCommand = installExecCommand(content)
+    select(content, 'p', 0, 'p:last-child', 6)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<div><h1>Title</h1><p><b>First</b></p><p><b>Second</b></p></div>')
+    expect(committedHtml(execCommand)).toEqual(['<b>Second</b>', '<b>First</b>'])
+  })
+
+  it('unwraps an existing mark through the enclosing block rather than replacing the element itself', () => {
+    const { onChange, content } = renderEditor('<p>Before <b>Bold</b> After</p>')
+    const execCommand = installExecCommand(content)
+    const boldText = content.querySelector('b')?.firstChild
+
+    if (boldText == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(boldText, 2)
+    range.collapse(true)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    // replacing the <b> itself would sit the replacement between two plain spaces, and the
+    // browser would promote them — the stub reproduces that, so the plain spaces prove the route
+    expect(onChange).toHaveBeenLastCalledWith('<p>Before Bold After</p>')
+    expect(committedHtml(execCommand)).toEqual(['Before Bold After'])
+  })
+
+  it('formats text inside a paragraph the browser left a list in by writing back only that text', () => {
+    // <p><ul> cannot come out of the HTML parser, which closes the paragraph first; it only ever
+    // arises from DOM operations, as execCommand('insertUnorderedList') performs them
+    const { onChange, content } = renderEditor('<p>Before Bold After</p>')
+    const execCommand = installExecCommand(content)
+    const paragraph = content.querySelector('p')
+    const list = document.createElement('ul')
+    list.innerHTML = '<li>x</li>'
+    paragraph?.insertBefore(list, paragraph.firstChild)
+    const textNode = paragraph?.lastChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 7)
+    range.setEnd(textNode, 11)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(committedHtml(execCommand)).toEqual(['Before <b>Bold</b> After'])
+    // the list is left where the browser put it in the live field (the stored value is repaired
+    // separately); the written-back span never began with it
+    expect(onChange).toHaveBeenLastCalledWith('<ul><li>x</li></ul><p>Before <b>Bold</b> After</p>')
+    expect(content.innerHTML).toBe('<p><ul><li>x</li></ul>Before <b>Bold</b> After</p>')
+  })
+
+  it('leaves the caret at the end of the last selected block even when it held nothing to wrap', () => {
+    const { content } = renderEditor('<p>text</p><p></p>')
+    installExecCommand(content)
+    const textNode = content.querySelector('p')?.firstChild
+    const emptyParagraph = content.querySelectorAll('p')[1]
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 0)
+    range.setEnd(emptyParagraph, 0)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    const after = document.getSelection()?.getRangeAt(0)
+
+    expect(content.innerHTML).toBe('<p><b>text</b></p><p></p>')
+    expect(after?.collapsed).toBe(true)
+    expect(after?.startContainer).toBe(emptyParagraph)
+    expect(after?.startOffset).toBe(0)
   })
 })
