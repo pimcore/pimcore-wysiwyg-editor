@@ -568,6 +568,70 @@ describe('CustomWysiwygEditor bold next to whitespace', () => {
     expect(onChange).toHaveBeenLastCalledWith('<div>Fi<b>rst</b></div><div><b>Sec</b>ond</div>')
   })
 
+  it('bolds each list item independently when the whole field is a list', () => {
+    const { onChange, content } = renderEditor('<ul><li>one</li><li>two</li></ul>')
+    installExecCommand(content)
+
+    const range = document.createRange()
+    range.selectNodeContents(content)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<ul><li><b>one</b></li><li><b>two</b></li></ul>')
+  })
+
+  it('keeps a selection crossing two table cells inside each cell', () => {
+    const { onChange, content } = renderEditor('<table><tbody><tr><td>one</td><td>two</td></tr></tbody></table>')
+    installExecCommand(content)
+    const cells = content.querySelectorAll('td')
+    const firstText = cells[0].firstChild
+    const secondText = cells[1].firstChild
+
+    if (firstText == null || secondText == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(firstText, 1)
+    range.setEnd(secondText, 2)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    // a table only ever reaches the field through the code view, so it is not a structure the
+    // toolbar builds — but formatting across it must still not put a cell or row inside a <b>
+    expect(onChange).toHaveBeenLastCalledWith(
+      '<table><tbody><tr><td>o<b>ne</b></td><td><b>tw</b>o</td></tr></tbody></table>'
+    )
+  })
+
+  it('keeps a selection crossing a paragraph and a pre inside each of them', () => {
+    const { onChange, content } = renderEditor('<p>text</p><pre>code</pre>')
+    installExecCommand(content)
+    const paragraphText = content.querySelector('p')?.firstChild
+    const preText = content.querySelector('pre')?.firstChild
+
+    if (paragraphText == null || preText == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(paragraphText, 2)
+    range.setEnd(preText, 2)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p>te<b>xt</b></p><pre><b>co</b>de</pre>')
+  })
+
   it('bolds around a nested list sitting inside the same list item as both ends of the selection', () => {
     const { onChange, content } = renderEditor('<ul><li>before<ul><li>child</li></ul>after</li></ul>')
     installExecCommand(content)

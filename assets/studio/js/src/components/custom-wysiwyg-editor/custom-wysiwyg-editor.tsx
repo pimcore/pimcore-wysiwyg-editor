@@ -73,14 +73,21 @@ const nodePath = (root: Node, node: Node): number[] => {
 const nodeAtPath = (root: Node, path: number[]): Node =>
   path.reduce<Node>((node, index) => node.childNodes[index], root)
 
-// DIV is included because the browser's own editing commands fall back to it as a paragraph
-// container (see the block-tag list `use-editor-selection.ts` matches for the same reason), and
-// because the code view accepts arbitrary HTML, so content built outside the toolbar can use it.
-// UL/OL are block-level too, and matter here specifically: without them, a range crossing into a
-// nested list resolves to the LI inside it, whose *own* parent is that list rather than the
-// element actually holding the two text runs either side of it, breaking every index computed
-// from there.
-const BLOCK_TAGS = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'UL', 'OL'])
+/**
+ * Elements a `b`/`i` may legally wrap. Listing what is inline rather than what is not is the
+ * safer way round here: the toolbar produces a known handful of blocks, but the code view accepts
+ * whatever a project pastes into it — a table, a `pre`, a `section` — and treating anything
+ * unrecognised as a block keeps the wrap from ever being placed around one.
+ */
+const INLINE_TAGS = new Set([
+  'A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'CITE', 'CODE', 'DATA', 'DFN', 'EM', 'I', 'IMG', 'KBD',
+  'MARK', 'Q', 'RP', 'RT', 'RUBY', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME',
+  'U', 'VAR', 'WBR'
+])
+
+/** Whether `node` is an element the wrap has to stay inside rather than enclose. */
+const isBlockElement = (node: Node): node is HTMLElement =>
+  node instanceof HTMLElement && !INLINE_TAGS.has(node.tagName)
 
 /**
  * Whether position (`nodeA`, `offsetA`) comes strictly before (`nodeB`, `offsetB`) in document
@@ -146,7 +153,7 @@ const closestSharedBlock = (nodeA: Node, nodeB: Node, root: HTMLElement): HTMLEl
   let current: Node | null = nodeA
 
   while (!isNil(current) && current !== root) {
-    if (current instanceof HTMLElement && BLOCK_TAGS.has(current.tagName) && current.contains(nodeB)) {
+    if (isBlockElement(current) && current.contains(nodeB)) {
       return current
     }
 
@@ -189,7 +196,7 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
   const crossedBlocks: HTMLElement[] = []
   const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
     acceptNode: (node) =>
-      node instanceof HTMLElement && BLOCK_TAGS.has(node.tagName) && range.intersectsNode(node)
+      isBlockElement(node) && range.intersectsNode(node)
         ? NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_SKIP
   })
@@ -271,8 +278,20 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
       continue
     }
 
-    // the part of the range before reaching this block, if the cursor is not already inside it
-    const before = wrapIfNonEmpty(cursorNode, cursorOffset, parent, Array.prototype.indexOf.call(parent.childNodes, block))
+    // The part of the range before reaching this block. The cursor can still be sitting outside
+    // `parent` entirely — a whole-field selection starts at the field itself, while the first
+    // block crossed may be a list item one level further in — and a segment spanning that gap
+    // would extract a partial copy of the container between them. Clamped to `parent`'s own start
+    // instead, which collapses the segment away when there was nothing in between to format.
+    const beforeStart = parent.contains(cursorNode)
+      ? { node: cursorNode, offset: cursorOffset }
+      : { node: parent, offset: 0 }
+    const before = wrapIfNonEmpty(
+      beforeStart.node,
+      beforeStart.offset,
+      parent,
+      Array.prototype.indexOf.call(parent.childNodes, block)
+    )
 
     if (!isNil(before)) {
       lastWrapper = before
@@ -315,10 +334,16 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
     cursorOffset = Array.prototype.indexOf.call(parent.childNodes, block) + 1
   }
 
-  // skipped once the last block's own overlap already reached the range's real end — trying it
-  // again here would read a node that block's own wrap already removed from the document
+  // Skipped once the last block's own overlap already reached the range's real end — trying it
+  // again here would read a node that block's own wrap already removed from the document. The
+  // end is clamped the same way the leading segment's start is: a whole-field selection ends at
+  // the field itself, one level out from the container the last block sits in, and a segment
+  // spanning that gap would extract a partial copy of it.
   if (!endHandled) {
-    const after = wrapIfNonEmpty(cursorNode, cursorOffset, endContainer, endOffset)
+    const afterEnd = cursorNode.contains(endContainer)
+      ? { node: endContainer, offset: endOffset }
+      : { node: cursorNode, offset: cursorNode.childNodes.length }
+    const after = wrapIfNonEmpty(cursorNode, cursorOffset, afterEnd.node, afterEnd.offset)
 
     if (!isNil(after)) {
       lastWrapper = after
