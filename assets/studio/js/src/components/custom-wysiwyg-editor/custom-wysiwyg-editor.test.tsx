@@ -457,4 +457,61 @@ describe('CustomWysiwygEditor bold next to whitespace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.redo' }))
     expect(content.innerHTML).toBe('<p>Before <b>Bold</b> After</p>')
   })
+
+  it('leaves the caret right after the bolded word, not at the end of the field', () => {
+    const { content } = renderEditor('<p>Before Bold After</p>')
+    installExecCommand(content)
+    const textNode = content.querySelector('p')?.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 7)
+    range.setEnd(textNode, 11)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    const after = document.getSelection()
+    const afterRange = after?.rangeCount === 1 ? after.getRangeAt(0) : null
+    const bold = content.querySelector('b')
+
+    expect(afterRange?.collapsed).toBe(true)
+    // right after the <b> element itself, inside the <p> — not inside the "After" text node.
+    // <p>'s children are ["Before ", <b>, " After"]; offset 2 sits right after the <b> at index 1
+    expect(afterRange?.startContainer).toBe(bold?.parentNode)
+    expect(afterRange?.startOffset).toBe(2)
+  })
+
+  it('bolds a selection spanning two paragraphs as one run per paragraph', () => {
+    const { onChange, content } = renderEditor('<p>First paragraph text</p><p>Second paragraph text</p>')
+    installExecCommand(content)
+    const paragraphs = content.querySelectorAll('p')
+    const firstText = paragraphs[0].firstChild
+    const secondText = paragraphs[1].firstChild
+
+    if (firstText == null || secondText == null) {
+      throw new Error('content not rendered')
+    }
+
+    // "paragraph text" through "Second" — crossing the boundary between the two blocks
+    const range = document.createRange()
+    range.setStart(firstText, 6)
+    range.setEnd(secondText, 6)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    // one <b> per paragraph, each holding only that paragraph's part of the selection; nothing
+    // outside the original two paragraphs, and no block content nested inside either <b>
+    expect(onChange).toHaveBeenLastCalledWith(
+      '<p>First <b>paragraph text</b></p><p><b>Second</b> paragraph text</p>'
+    )
+  })
 })

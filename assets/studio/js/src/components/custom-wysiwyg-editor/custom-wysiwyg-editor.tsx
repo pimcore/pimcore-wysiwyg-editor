@@ -73,6 +73,111 @@ const nodePath = (root: Node, node: Node): number[] => {
 const nodeAtPath = (root: Node, path: number[]): Node =>
   path.reduce<Node>((node, index) => node.childNodes[index], root)
 
+const BLOCK_TAGS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE'])
+
+/** The nearest block-level ancestor of `node`, up to and including `root` itself. */
+const closestBlock = (node: Node, root: Node): Node => {
+  let current: Node | null = node.nodeType === Node.TEXT_NODE ? node.parentNode : node
+
+  while (!isNil(current) && current !== root) {
+    if (current instanceof HTMLElement && BLOCK_TAGS.has(current.tagName)) {
+      return current
+    }
+
+    current = current.parentNode
+  }
+
+  return root
+}
+
+/**
+ * Wraps `range` in a `tagName` element, splitting the wrap one block at a time when the range
+ * spans more than one. `Range.extractContents()` preserves the ancestor structure of whatever it
+ * spans, so wrapping a cross-block range in a single inline element the ordinary way would nest
+ * block content — a paragraph, say — inside it; wrapping it back up on reinsertion is not
+ * something a browser's HTML parser can make sense of either. Splitting first keeps each wrapper
+ * inside the one block it belongs to, which is both valid markup and what a reader would expect:
+ * each paragraph gets its own run of bold text.
+ *
+ * Returns the path to the last wrapper inserted, so the caret can be placed after it once this
+ * runs on a clone and the result is committed to the live document.
+ */
+const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagName: string): number[] => {
+  const startBlock = closestBlock(range.startContainer, root)
+  const endBlock = closestBlock(range.endContainer, root)
+
+  if (startBlock === endBlock) {
+    const wrapper = doc.createElement(tagName)
+
+    wrapper.appendChild(range.extractContents())
+    range.insertNode(wrapper)
+
+    // extractContents leaves an empty text node behind exactly where mutateWithHistory's own
+    // insertHTML earlier did — normalizing drops it, matching what the string round trip through
+    // that command produces, so the path below still resolves once this runs against the live copy
+    root.normalize()
+
+    return nodePath(root, wrapper)
+  }
+
+  // one text node at a time, grouped by the block each belongs to, so a run split across inline
+  // elements within the same block (already bold text, a link) still becomes one wrapper per block
+  // rather than one per text node
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+  })
+
+  const blockOrder: Node[] = []
+  const textNodesByBlock = new Map<Node, Text[]>()
+  let current = walker.nextNode()
+
+  while (!isNil(current)) {
+    const block = closestBlock(current, root)
+    const nodes = textNodesByBlock.get(block)
+
+    if (isNil(nodes)) {
+      textNodesByBlock.set(block, [current as Text])
+      blockOrder.push(block)
+    } else {
+      nodes.push(current as Text)
+    }
+
+    current = walker.nextNode()
+  }
+
+  // an element reference survives `normalize()` below even though its position among siblings
+  // can shift — unlike a path computed before it, which could end up pointing at the wrong node
+  let lastWrapper: Element | null = null
+
+  for (const block of blockOrder) {
+    const textNodes = textNodesByBlock.get(block)
+
+    if (isNil(textNodes) || textNodes.length === 0) {
+      continue
+    }
+
+    const first = textNodes[0]
+    const last = textNodes[textNodes.length - 1]
+    const blockRange = doc.createRange()
+
+    blockRange.setStart(first, first === range.startContainer ? range.startOffset : 0)
+    blockRange.setEnd(last, last === range.endContainer ? range.endOffset : last.length)
+
+    const wrapper = doc.createElement(tagName)
+
+    wrapper.appendChild(blockRange.extractContents())
+    blockRange.insertNode(wrapper)
+
+    lastWrapper = wrapper
+  }
+
+  // see the single-block branch above: without this, a path computed here can point at a position
+  // the string round trip through insertHTML never reproduces
+  root.normalize()
+
+  return nodePath(root, lastWrapper ?? startBlock)
+}
+
 export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
   ({ value, onChange, disabled, width, height, placeholder }, ref): React.JSX.Element => {
     const wrapperRef = useRef<HTMLDivElement>(null)
@@ -225,7 +330,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * content in a state that never existed. Mutating a copy and writing it back through
      * `insertHTML` records one ordinary, undoable step.
      */
-    const mutateWithHistory = (target: HTMLElement, mutate: (draft: HTMLElement) => void): void => {
+    const mutateWithHistory = (target: HTMLElement, mutate: (draft: HTMLElement) => number[] | void): void => {
       const content = contentRef.current
       const selection = content?.ownerDocument.defaultView?.getSelection()
 
@@ -236,7 +341,11 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       const doc = content.ownerDocument
       const draft = target.cloneNode(true) as HTMLElement
 
-      mutate(draft)
+      // a path to a node in `draft`: after committing, the same path resolves against `target`
+      // itself, since inserting the serialized clone reproduces the same structure as its
+      // children. Only sound for `target === content` — a narrower target is itself replaced by
+      // the commit below, so `target` as a reference would no longer be part of the live tree.
+      const caretAfterPath = mutate(draft)
 
       const range = doc.createRange()
 
@@ -249,6 +358,15 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       selection.removeAllRanges()
       selection.addRange(range)
       doc.execCommand('insertHTML', false, target === content ? draft.innerHTML : draft.outerHTML)
+
+      if (Array.isArray(caretAfterPath)) {
+        const caretNode = nodeAtPath(target, caretAfterPath)
+        const caretRange = doc.createRange()
+        caretRange.setStartAfter(caretNode)
+        caretRange.collapse(true)
+        selection.removeAllRanges()
+        selection.addRange(caretRange)
+      }
     }
 
     const handleCommand = (command: string, argument?: string): void => {
@@ -317,7 +435,9 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         // reader never typed. Building the wrap on a detached clone with the plain Range API next
         // avoids the browser's own insertHTML behaviour entirely, and committing the whole,
         // already-correct result through `mutateWithHistory` in one step keeps undo and redo
-        // reverting and replaying that exact result, rather than an intermediate one.
+        // reverting and replaying that exact result, rather than an intermediate one — and lets the
+        // caret return to where the selection was, rather than wherever replacing the whole field's
+        // content happens to leave it.
         const startPath = nodePath(content, range.startContainer)
         const startOffset = range.startOffset
         const endPath = nodePath(content, range.endContainer)
@@ -328,9 +448,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
           draftRange.setStart(nodeAtPath(draft, startPath), startOffset)
           draftRange.setEnd(nodeAtPath(draft, endPath), endOffset)
 
-          const wrapper = doc.createElement(INLINE_MARKS[mark].tag)
-          wrapper.appendChild(draftRange.extractContents())
-          draftRange.insertNode(wrapper)
+          return wrapRangeByBlock(doc, draft, draftRange, INLINE_MARKS[mark].tag)
         })
       }
 
