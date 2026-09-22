@@ -95,6 +95,23 @@ interface FieldSpan {
  * Whether `element` can be written back as one piece: its contents begin with inline nodes, or it
  * is empty, so it holds no block of its own for the browser to turn into a shell.
  */
+/**
+ * A zero-width space put in front of a field's first block before the whole field is written
+ * back through `insertHTML`. What the replaced range begins with decides how the browser
+ * reinserts — see {@link commitSpan} — and a rendered inline node in front keeps a heading or
+ * list from becoming the shell everything else ends up nested in. It goes out with the replaced
+ * content and only ever comes back with an undo, where {@link dropInlineLead} removes it again.
+ */
+const INLINE_LEAD = '\u200b'
+
+const dropInlineLead = (content: HTMLElement): void => {
+  const first = content.firstChild
+
+  if (first instanceof Text && first.data === INLINE_LEAD) {
+    first.remove()
+  }
+}
+
 const beginsInline = (element: HTMLElement): boolean =>
   isNil(element.firstChild) || !isBlockElement(element.firstChild)
 
@@ -533,6 +550,10 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       if (isNil(content)) {
         return
       }
+
+      // an undo of a code-view change brings its lead back along with the content it replaced —
+      // removing it here, right as the undo is emitted, is measured not to disturb redo
+      dropInlineLead(content)
 
       // The browser's own list markup is not always valid — `execCommand('indent')` puts the nested
       // list beside its item rather than inside it. Repairing the live DOM would desynchronise the
@@ -1251,14 +1272,27 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     }
 
     const handleApplyCodeView = (edited: string): void => {
-      // write through to the DOM rather than relying on the sync effect, which skips while the
-      // content is focused — where focus lands after the modal closes is not ours to predict
-      if (!isNil(contentRef.current)) {
-        contentRef.current.innerHTML = edited
+      setCodeViewOpen(false)
+
+      const content = contentRef.current
+
+      if (isNil(content)) {
+        return
       }
 
-      onChange?.(edited)
-      setCodeViewOpen(false)
+      focusContent()
+
+      // Written back as one undoable step rather than assigned to the DOM: an assignment is
+      // invisible to undo, and leaves the browser's earlier undo entries pointing at nodes that
+      // no longer exist. A field beginning with a block gets an inline lead first, so the
+      // replaced range does not begin with a block the browser would keep as a shell.
+      if (!beginsInline(content)) {
+        content.insertBefore(content.ownerDocument.createTextNode(INLINE_LEAD), content.firstChild)
+      }
+
+      mutateWithHistory(content, (draft) => { draft.innerHTML = edited })
+      emitChange()
+      refreshFormatState()
     }
 
     return (

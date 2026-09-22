@@ -1475,3 +1475,85 @@ describe('execCommand stand-in', () => {
     expect(content.innerHTML).toBe('<p>Before Bold&nbsp;After</p>')
   })
 })
+
+describe('CustomWysiwygEditor code view', () => {
+  const applyCodeView = (html: string): void => {
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.code-view' }))
+    fireEvent.change(screen.getByLabelText('code-editor'), { target: { value: html } })
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.code-view.apply' }))
+  }
+
+  it('applies the edited HTML as a change that undo takes back', () => {
+    const { onChange, content } = renderEditor('<h1>Title</h1><p>text</p>')
+    installExecCommand(content)
+
+    applyCodeView('<p>text</p>')
+
+    expect(content.innerHTML).toBe('<p>text</p>')
+    expect(onChange).toHaveBeenLastCalledWith('<p>text</p>')
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+
+    expect(content.innerHTML).toBe('<h1>Title</h1><p>text</p>')
+    expect(onChange).toHaveBeenLastCalledWith('<h1>Title</h1><p>text</p>')
+  })
+
+  it('replays the change on redo after such an undo', () => {
+    const { onChange, content } = renderEditor('<h1>Title</h1><p>text</p>')
+    installExecCommand(content)
+
+    applyCodeView('<p>text</p>')
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.redo' }))
+
+    expect(content.innerHTML).toBe('<p>text</p>')
+    expect(onChange).toHaveBeenLastCalledWith('<p>text</p>')
+  })
+
+  it('leaves nothing of the inline lead behind, in the field or in the value', () => {
+    // a field beginning with a block gets a zero-width space in front before it is written
+    // back, so the browser does not keep that block as a shell; undo brings it back with the
+    // old content and it has to go again at once
+    const { onChange, content } = renderEditor('<ul><li>item</li></ul><p>text</p>')
+    installExecCommand(content)
+
+    applyCodeView('<p>text</p>')
+    expect(content.innerHTML).toBe('<p>text</p>')
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+
+    expect(content.innerHTML).toBe('<ul><li>item</li></ul><p>text</p>')
+    expect(content.textContent).not.toContain('\u200b')
+    expect(onChange).toHaveBeenLastCalledWith('<ul><li>item</li></ul><p>text</p>')
+  })
+
+  it('undoes an edit typed before the code view change only after that change', () => {
+    const { content } = renderEditor('<p>text</p>')
+    const execCommand = installExecCommand(content)
+    const textNode = content.querySelector('p')?.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 4)
+    range.collapse(true)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    // the stand-in's insertText is not caret-aware; an insertHTML at the caret is the same kind
+    // of undoable native edit for the history's purposes
+    document.execCommand('insertHTML', false, ' more')
+    expect(content.innerHTML).toBe('<p>text more</p>')
+
+    applyCodeView('<h2>text more</h2>')
+    expect(content.innerHTML).toBe('<h2>text more</h2>')
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+    expect(content.innerHTML).toBe('<p>text more</p>')
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+    expect(content.innerHTML).toBe('<p>text</p>')
+    expect(execCommand).toHaveBeenCalledWith('insertHTML', false, '<h2>text more</h2>')
+  })
+})

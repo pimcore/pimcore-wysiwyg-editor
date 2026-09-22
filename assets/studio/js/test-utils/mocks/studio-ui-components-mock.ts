@@ -1,3 +1,4 @@
+import React from 'react'
 /**
  * Pimcore
  *
@@ -21,4 +22,11 @@ export const useMessage = (): typeof messageMock => messageMock
 
 export const createImageThumbnailUrl = (assetId: number): string => `/thumbnail/${assetId}`
 
-export const CodeEditor = (): null => null
+// a plain textarea stands in for the code editor, so a test can type into the code view
+export const CodeEditor = ({ value, onChange, readOnly }: { value: string, onChange?: (value: string) => void, readOnly?: boolean }): React.JSX.Element =>
+  React.createElement('textarea', {
+    'aria-label': 'code-editor',
+    value,
+    readOnly,
+    onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => { onChange?.(event.target.value) }
+  })
