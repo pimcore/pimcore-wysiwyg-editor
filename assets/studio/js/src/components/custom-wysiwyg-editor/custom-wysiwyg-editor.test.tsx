@@ -1092,6 +1092,28 @@ describe('CustomWysiwygEditor commit granularity', () => {
     expect(after?.startOffset).toBe(0)
   })
 
+  it('leaves the whitespace between two list items alone when bolding across them', () => {
+    const { onChange, content } = renderEditor('<ul><li>one</li>\n<li>two</li></ul>')
+    installExecCommand(content)
+    select(content, 'li', 0, 'li:last-of-type', 3)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    // no <b> around the newline between the items
+    expect(onChange).toHaveBeenLastCalledWith('<ul><li><b>one</b></li>\n<li><b>two</b></li></ul>')
+  })
+
+  it('looks past whitespace between tags when deciding whether a container begins with a block', () => {
+    const { onChange, content } = renderEditor('<div>\n<h1>Title</h1>\n<p>First</p>\n<p>Second</p>\n</div>')
+    const execCommand = installExecCommand(content)
+    select(content, 'p', 0, 'p:last-of-type', 6)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<div>\n<h1>Title</h1>\n<p><b>First</b></p>\n<p><b>Second</b></p>\n</div>')
+    expect(committedHtml(execCommand)).toEqual(['<b>Second</b>', '<b>First</b>'])
+  })
+
   it('descends into a block that itself begins with a block, so no span written back starts with one', () => {
     const { onChange, content } = renderEditor('<div><h1>Title</h1><p>Body</p></div><p>Next</p>')
     const execCommand = installExecCommand(content)
@@ -1539,6 +1561,31 @@ describe('CustomWysiwygEditor code view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
 
     expect(content.innerHTML).toBe('<h1>Title</h1><p>text</p>')
+  })
+
+  it('leaves an element the user gave the lead attribute alone', () => {
+    const { onChange, content } = renderEditor('<h1>Title</h1><p>text</p>')
+    installExecCommand(content)
+
+    applyCodeView('<span data-wysiwyg-lead="">keep me</span><p>text</p>')
+
+    expect(content.innerHTML).toBe('<span data-wysiwyg-lead="">keep me</span><p>text</p>')
+    expect(onChange).toHaveBeenLastCalledWith('<span data-wysiwyg-lead="">keep me</span><p>text</p>')
+  })
+
+  it('puts the lead in front of whitespace and comments preceding the first block as well', () => {
+    // neither renders, so neither keeps the browser from making a shell of the heading behind it
+    const { onChange, content } = renderEditor('<!-- note -->\n<h1>Title</h1>\n<p>text</p>')
+    installExecCommand(content)
+
+    applyCodeView('<p>text</p>')
+    expect(content.innerHTML).toBe('<p>text</p>')
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+
+    expect(content.innerHTML).toBe('<!-- note -->\n<h1>Title</h1>\n<p>text</p>')
+    expect(content.querySelector('[data-wysiwyg-lead]')).toBeNull()
+    expect(onChange).toHaveBeenLastCalledWith('<!-- note -->\n<h1>Title</h1>\n<p>text</p>')
   })
 
   it('does not write back, and so adds no undo step, when the code was not changed', () => {

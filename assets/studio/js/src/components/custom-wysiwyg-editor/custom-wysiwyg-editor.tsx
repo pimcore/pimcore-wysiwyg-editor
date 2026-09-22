@@ -96,31 +96,40 @@ interface FieldSpan {
  * through `insertHTML`. What the replaced range begins with decides how the browser reinserts —
  * see {@link commitSpan} — and a rendered inline node in front keeps a heading or list from
  * becoming the shell everything else ends up nested in. A zero-width space is what renders
- * without showing; the element around it, with its attribute, is what tells the marker apart from
- * anything a user could have written. It goes out with the replaced content and only ever comes
- * back with an undo, where {@link dropInlineLead} removes it again.
+ * without showing; the element around it, carrying a token this editor instance made up, is what
+ * tells the marker apart from anything a user could have written. It goes out with the replaced
+ * content and only ever comes back with an undo, where {@link dropInlineLead} removes it again.
  */
 const INLINE_LEAD_ATTRIBUTE = 'data-wysiwyg-lead'
 
-const createInlineLead = (doc: Document): HTMLElement => {
+const createInlineLead = (doc: Document, token: string): HTMLElement => {
   const lead = doc.createElement('span')
 
-  lead.setAttribute(INLINE_LEAD_ATTRIBUTE, '')
+  lead.setAttribute(INLINE_LEAD_ATTRIBUTE, token)
   lead.textContent = '\u200b'
 
   return lead
 }
 
-const dropInlineLead = (content: HTMLElement): void => {
-  content.querySelectorAll(`:scope > [${INLINE_LEAD_ATTRIBUTE}]`).forEach((lead) => { lead.remove() })
+const dropInlineLead = (content: HTMLElement, token: string): void => {
+  content.querySelectorAll(`:scope > [${INLINE_LEAD_ATTRIBUTE}="${token}"]`).forEach((lead) => { lead.remove() })
 }
 
+/** Whether `node` puts anything on the page: an element, or text that is not just whitespace between tags. */
+const isRendered = (node: Node): boolean =>
+  node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && (node as Text).data.trim() !== '')
+
 /**
- * Whether `element` can be written back as one piece: its contents begin with inline nodes, or it
- * is empty, so it holds no block of its own for the browser to turn into a shell.
+ * Whether `element` can be written back as one piece: its contents begin with a rendered inline
+ * node, or it is empty, so it holds no block of its own for the browser to turn into a shell. A
+ * comment or whitespace between tags in front of the first block renders nothing and protects
+ * nothing, so it is looked past.
  */
-const beginsInline = (element: HTMLElement): boolean =>
-  isNil(element.firstChild) || !isBlockElement(element.firstChild)
+const beginsInline = (element: HTMLElement): boolean => {
+  const first = Array.from(element.childNodes).find(isRendered)
+
+  return isNil(first) || !isBlockElement(first)
+}
 
 /**
  * The child-index spans of `root` (or of blocks nested in it) to write back for a change within
@@ -137,10 +146,12 @@ const spansToCommit = (root: HTMLElement, range: Range): FieldSpan[] => {
   }
 
   const spans: FieldSpan[] = []
-  let run: { from: number, to: number, reached: boolean } | null = null
+  let run: { from: number, to: number, reached: boolean, rendered: boolean } | null = null
 
+  // a run the range reaches but that renders nothing — the whitespace between two blocks' tags —
+  // has nothing to format, and a wrapper around it would be markup where none belongs
   const closeRun = (): void => {
-    if (!isNil(run) && run.reached) {
+    if (!isNil(run) && run.reached && run.rendered) {
       spans.push({ container: root, from: run.from, to: run.to })
     }
 
@@ -159,11 +170,12 @@ const spansToCommit = (root: HTMLElement, range: Range): FieldSpan[] => {
     }
 
     if (isNil(run)) {
-      run = { from: index, to: index, reached: false }
+      run = { from: index, to: index, reached: false, rendered: false }
     }
 
     run.to = index + 1
     run.reached = run.reached || range.intersectsNode(child)
+    run.rendered = run.rendered || isRendered(child)
   })
 
   closeRun()
@@ -410,6 +422,12 @@ const wrapRangeByBlock = (doc: Document, root: HTMLElement, range: Range, tagNam
     segment.setStart(startNode, startPos)
     segment.setEnd(endNode, endPos)
 
+    // the gap between two blocks is often just the whitespace between their tags — nothing to
+    // format, and a wrapper directly between blocks is markup where none belongs
+    if (!Array.from(segment.cloneContents().childNodes).some(isRendered)) {
+      return null
+    }
+
     return wrapDirectly(segment)
   }
 
@@ -511,6 +529,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     const [hasFocus, setHasFocus] = useState(false)
     const [linkPopoverOpen, setLinkPopoverOpen] = useState(false)
     const [codeViewOpen, setCodeViewOpen] = useState(false)
+    const inlineLeadToken = useRef(Math.random().toString(36).slice(2))
     const { styles } = useStyles()
     const messageApi = useMessage()
     const { t } = useTranslation()
@@ -560,7 +579,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
 
       // an undo of a code-view change brings its lead back along with the content it replaced —
       // removing it here, right as the undo is emitted, is measured not to disturb redo
-      dropInlineLead(content)
+      dropInlineLead(content, inlineLeadToken.current)
 
       // The browser's own list markup is not always valid — `execCommand('indent')` puts the nested
       // list beside its item rather than inside it. Repairing the live DOM would desynchronise the
@@ -1301,11 +1320,9 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
 
       // Written back as one undoable step rather than assigned to the DOM: an assignment is
       // invisible to undo, and leaves the browser's earlier undo entries pointing at nodes that
-      // no longer exist. A field beginning with a block gets an inline lead first, so the
-      // replaced range does not begin with a block the browser would keep as a shell.
-      if (!beginsInline(content)) {
-        content.insertBefore(createInlineLead(doc), content.firstChild)
-      }
+      // no longer exist. The inline lead goes in front first, whatever the field begins with, so
+      // the replaced range never begins with a block the browser would keep as a shell.
+      content.insertBefore(createInlineLead(doc, inlineLeadToken.current), content.firstChild)
 
       mutateWithHistory(content, (draft) => { draft.innerHTML = edited })
       emitChange()
