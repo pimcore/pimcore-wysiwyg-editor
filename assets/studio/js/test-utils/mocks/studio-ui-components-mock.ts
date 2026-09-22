@@ -1,4 +1,3 @@
-import React from 'react'
 /**
  * Pimcore
  *
@@ -8,6 +7,8 @@ import React from 'react'
  *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
  *  @license    http://www.pimcore.org/license     GPLv3
  */
+
+import React from 'react'
 
 // Mock of the federated `@pimcore/studio-ui-bundle/components` entry point. Messages are recorded
 // instead of shown, so tests can assert what the user would have been told.

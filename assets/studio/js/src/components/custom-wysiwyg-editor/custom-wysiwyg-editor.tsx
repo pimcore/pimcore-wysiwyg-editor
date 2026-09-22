@@ -92,26 +92,33 @@ interface FieldSpan {
 }
 
 /**
+ * The marker put in front of a field's first block before the whole field is written back
+ * through `insertHTML`. What the replaced range begins with decides how the browser reinserts —
+ * see {@link commitSpan} — and a rendered inline node in front keeps a heading or list from
+ * becoming the shell everything else ends up nested in. A zero-width space is what renders
+ * without showing; the element around it, with its attribute, is what tells the marker apart from
+ * anything a user could have written. It goes out with the replaced content and only ever comes
+ * back with an undo, where {@link dropInlineLead} removes it again.
+ */
+const INLINE_LEAD_ATTRIBUTE = 'data-wysiwyg-lead'
+
+const createInlineLead = (doc: Document): HTMLElement => {
+  const lead = doc.createElement('span')
+
+  lead.setAttribute(INLINE_LEAD_ATTRIBUTE, '')
+  lead.textContent = '\u200b'
+
+  return lead
+}
+
+const dropInlineLead = (content: HTMLElement): void => {
+  content.querySelectorAll(`:scope > [${INLINE_LEAD_ATTRIBUTE}]`).forEach((lead) => { lead.remove() })
+}
+
+/**
  * Whether `element` can be written back as one piece: its contents begin with inline nodes, or it
  * is empty, so it holds no block of its own for the browser to turn into a shell.
  */
-/**
- * A zero-width space put in front of a field's first block before the whole field is written
- * back through `insertHTML`. What the replaced range begins with decides how the browser
- * reinserts — see {@link commitSpan} — and a rendered inline node in front keeps a heading or
- * list from becoming the shell everything else ends up nested in. It goes out with the replaced
- * content and only ever comes back with an undo, where {@link dropInlineLead} removes it again.
- */
-const INLINE_LEAD = '\u200b'
-
-const dropInlineLead = (content: HTMLElement): void => {
-  const first = content.firstChild
-
-  if (first instanceof Text && first.data === INLINE_LEAD) {
-    first.remove()
-  }
-}
-
 const beginsInline = (element: HTMLElement): boolean =>
   isNil(element.firstChild) || !isBlockElement(element.firstChild)
 
@@ -1280,6 +1287,16 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         return
       }
 
+      const doc = content.ownerDocument
+      const parsed = doc.createElement('div')
+
+      parsed.innerHTML = edited
+
+      // nothing changed: writing it back anyway would add an undo step with nothing in it
+      if (parsed.innerHTML === content.innerHTML) {
+        return
+      }
+
       focusContent()
 
       // Written back as one undoable step rather than assigned to the DOM: an assignment is
@@ -1287,7 +1304,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       // no longer exist. A field beginning with a block gets an inline lead first, so the
       // replaced range does not begin with a block the browser would keep as a shell.
       if (!beginsInline(content)) {
-        content.insertBefore(content.ownerDocument.createTextNode(INLINE_LEAD), content.firstChild)
+        content.insertBefore(createInlineLead(doc), content.firstChild)
       }
 
       mutateWithHistory(content, (draft) => { draft.innerHTML = edited })

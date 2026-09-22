@@ -1523,8 +1523,48 @@ describe('CustomWysiwygEditor code view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
 
     expect(content.innerHTML).toBe('<ul><li>item</li></ul><p>text</p>')
-    expect(content.textContent).not.toContain('\u200b')
+    expect(content.querySelector('[data-wysiwyg-lead]')).toBeNull()
     expect(onChange).toHaveBeenLastCalledWith('<ul><li>item</li></ul><p>text</p>')
+  })
+
+  it('leaves a zero-width space the user put at the start of the code alone', () => {
+    const { onChange, content } = renderEditor('<h1>Title</h1><p>text</p>')
+    installExecCommand(content)
+
+    applyCodeView('\u200b<p>text</p>')
+
+    expect(content.innerHTML).toBe('\u200b<p>text</p>')
+    expect(onChange).toHaveBeenLastCalledWith('\u200b<p>text</p>')
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+
+    expect(content.innerHTML).toBe('<h1>Title</h1><p>text</p>')
+  })
+
+  it('does not write back, and so adds no undo step, when the code was not changed', () => {
+    const { content } = renderEditor('<p>text</p>')
+    const execCommand = installExecCommand(content)
+    const textNode = content.querySelector('p')?.firstChild
+
+    if (textNode == null) {
+      throw new Error('content not rendered')
+    }
+
+    const range = document.createRange()
+    range.setStart(textNode, 4)
+    range.collapse(true)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    document.execCommand('insertHTML', false, ' more')
+    execCommand.mockClear()
+
+    applyCodeView('<p>text more</p>')
+
+    expect(execCommand).not.toHaveBeenCalledWith('insertHTML', expect.anything(), expect.anything())
+
+    // the one step there is to undo is the edit typed before, not an empty write-back
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+    expect(content.innerHTML).toBe('<p>text</p>')
   })
 
   it('undoes an edit typed before the code view change only after that change', () => {
