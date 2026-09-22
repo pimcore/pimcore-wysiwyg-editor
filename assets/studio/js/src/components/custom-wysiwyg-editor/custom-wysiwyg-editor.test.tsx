@@ -1103,6 +1103,16 @@ describe('CustomWysiwygEditor commit granularity', () => {
     expect(onChange).toHaveBeenLastCalledWith('<ul><li><b>one</b></li>\n<li><b>two</b></li></ul>')
   })
 
+  it('treats a non-breaking space between two blocks as content, unlike the whitespace between tags', () => {
+    const { onChange, content } = renderEditor('<p>one</p>&nbsp;<p>two</p>')
+    installExecCommand(content)
+    select(content, 'p', 0, 'p:last-of-type', 3)
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.bold' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p><b>one</b></p><b>&nbsp;</b><p><b>two</b></p>')
+  })
+
   it('looks past whitespace between tags when deciding whether a container begins with a block', () => {
     const { onChange, content } = renderEditor('<div>\n<h1>Title</h1>\n<p>First</p>\n<p>Second</p>\n</div>')
     const execCommand = installExecCommand(content)

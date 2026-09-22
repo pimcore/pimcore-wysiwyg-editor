@@ -115,9 +115,12 @@ const dropInlineLead = (content: HTMLElement, token: string): void => {
   content.querySelectorAll(`:scope > [${INLINE_LEAD_ATTRIBUTE}="${token}"]`).forEach((lead) => { lead.remove() })
 }
 
+/** The whitespace HTML collapses — what sits between two tags on separate lines. Not `trim()`: a non-breaking space shows. */
+const COLLAPSIBLE_WHITESPACE = /^[ \t\n\r\f]*$/
+
 /** Whether `node` puts anything on the page: an element, or text that is not just whitespace between tags. */
 const isRendered = (node: Node): boolean =>
-  node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && (node as Text).data.trim() !== '')
+  node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && !COLLAPSIBLE_WHITESPACE.test((node as Text).data))
 
 /**
  * Whether `element` can be written back as one piece: its contents begin with a rendered inline
