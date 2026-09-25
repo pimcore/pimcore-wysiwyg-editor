@@ -13,17 +13,11 @@ declare(strict_types=1);
 
 namespace Pimcore\Bundle\WysiwygEditor;
 
-use Pimcore\Bundle\EnterpriseSubscriptionToolsBundle\Bundle\EnterpriseBundleInterface;
-use Pimcore\Bundle\EnterpriseSubscriptionToolsBundle\PimcoreEnterpriseSubscriptionToolsBundle;
 use Pimcore\Extension\Bundle\AbstractPimcoreBundle;
 use Pimcore\Extension\Bundle\Installer\InstallerInterface;
-use Pimcore\HttpKernel\BundleCollection\BundleCollection;
 
-class PimcoreWysiwygEditor extends AbstractPimcoreBundle implements
-    EnterpriseBundleInterface
+class PimcoreWysiwygEditor extends AbstractPimcoreBundle
 {
-    private const ENTERPRISE_BUNDLE_LICENSE_ID = 'xLicensex';
-
     public function getPath(): string
     {
         return dirname(__DIR__);
@@ -45,15 +39,5 @@ class PimcoreWysiwygEditor extends AbstractPimcoreBundle implements
 
         /** @var InstallerInterface|null */
         return $this->container->get(Installer::class);
-    }
-
-    public static function registerDependentBundles(BundleCollection $collection): void
-    {
-        $collection->addBundle(new PimcoreEnterpriseSubscriptionToolsBundle());
-    }
-
-    public function getBundleLicenseId(): string
-    {
-        return self::ENTERPRISE_BUNDLE_LICENSE_ID;
     }
 }
