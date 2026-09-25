@@ -1,6 +1,6 @@
 {
   "name": "pimcore/pimcore-wysiwyg-editor",
-  "license": "GPL-3.0-or-later",
+  "license": "proprietary",
   "type": "pimcore-bundle",
   "description": "Pimcore WYSIWYG Editor Bundle",
   "config": {
