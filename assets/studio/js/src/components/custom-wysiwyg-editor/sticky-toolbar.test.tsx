@@ -10,7 +10,7 @@
 
 import React, { useRef } from 'react'
 import { render } from '@testing-library/react'
-import { findScrollContainer, getStickyOffset, useStickyToolbar } from './sticky-toolbar'
+import { getStickyOffset, getVisibleTop, useStickyToolbar } from './sticky-toolbar'
 
 const rect = (top: number, height: number): DOMRect => ({
   top,
@@ -52,32 +52,48 @@ describe('getStickyOffset', () => {
   })
 })
 
-describe('findScrollContainer', () => {
-  it('finds the nearest ancestor that really scrolls', () => {
-    const scroller = makeScroller('auto', 2000, 500)
+describe('getVisibleTop', () => {
+  const withTop = (element: HTMLElement, top: number): HTMLElement => {
+    element.getBoundingClientRect = () => rect(top, 500)
+
+    return element
+  }
+
+  afterEach(() => { document.body.innerHTML = '' })
+
+  it('is the top edge of the nearest ancestor that really scrolls', () => {
+    const scroller = withTop(makeScroller('auto', 2000, 500), 100)
     const inner = document.createElement('div')
     scroller.appendChild(inner)
 
-    expect(findScrollContainer(inner)).toBe(scroller)
+    expect(getVisibleTop(inner)).toBe(100)
   })
 
   it('skips an ancestor that allows scrolling but has no overflowing content', () => {
-    const scroller = makeScroller('auto', 2000, 500)
-    const growing = makeScroller('auto', 800, 800)
+    const scroller = withTop(makeScroller('auto', 2000, 500), 100)
+    const growing = withTop(makeScroller('auto', 800, 800), 160)
     const inner = document.createElement('div')
     growing.appendChild(inner)
     scroller.appendChild(growing)
 
-    expect(findScrollContainer(inner)).toBe(scroller)
+    expect(getVisibleTop(inner)).toBe(100)
   })
 
-  it('returns null when nothing but the page scrolls', () => {
+  it('follows the outer pane when only that one has scrolled the inner pane partly out of view', () => {
+    const outer = withTop(makeScroller('auto', 5000, 600), 100)
+    const inner = withTop(makeScroller('auto', 3000, 600), -200)
+    const field = document.createElement('div')
+    inner.appendChild(field)
+    outer.appendChild(inner)
+
+    expect(getVisibleTop(field)).toBe(100)
+  })
+
+  it('is 0 when nothing but the page scrolls', () => {
     const inner = document.createElement('div')
     document.body.appendChild(inner)
 
-    expect(findScrollContainer(inner)).toBeNull()
-
-    inner.remove()
+    expect(getVisibleTop(inner)).toBe(0)
   })
 })
 

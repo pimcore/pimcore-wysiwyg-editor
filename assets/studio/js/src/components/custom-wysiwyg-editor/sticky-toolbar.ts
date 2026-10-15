@@ -11,7 +11,7 @@
 import { type RefObject, useEffect } from 'react'
 
 export interface StickyOffsetInput {
-  /** top edge of the visible scroll area; 0 when the page itself scrolls */
+  /** top edge of the area the field is visible in; 0 when only the page scrolls */
   scrollerTop: number
   toolbarTop: number
   toolbarHeight: number
@@ -38,20 +38,24 @@ export const getStickyOffset = ({ scrollerTop, toolbarTop, toolbarHeight, wrappe
 const SCROLLING_OVERFLOW = ['auto', 'scroll', 'overlay']
 
 /**
- * The nearest ancestor the user can actually scroll. A box that merely allows scrolling but grows
- * with its content never scrolls, and CSS `position: sticky` still takes it as its scroll area,
- * which is why it is skipped here and not picked.
+ * The top edge of the area in which the element is visible: the lowest top edge among the
+ * viewport and every ancestor the user can actually scroll. With nested scroll areas the outer one
+ * can have scrolled past the inner one's top, so the nearest scroller alone is not enough. A box
+ * that merely allows scrolling but grows with its content never scrolls, and CSS
+ * `position: sticky` still takes it as its scroll area, which is why it is skipped here.
  */
-export const findScrollContainer = (element: HTMLElement): HTMLElement | null => {
+export const getVisibleTop = (element: HTMLElement): number => {
+  let top = 0
+
   for (let ancestor = element.parentElement; ancestor !== null && ancestor !== document.body; ancestor = ancestor.parentElement) {
     const overflowY = getComputedStyle(ancestor).overflowY
 
     if (SCROLLING_OVERFLOW.includes(overflowY) && ancestor.scrollHeight > ancestor.clientHeight + 1) {
-      return ancestor
+      top = Math.max(top, ancestor.getBoundingClientRect().top)
     }
   }
 
-  return null
+  return top
 }
 
 /**
@@ -73,11 +77,10 @@ export const keepToolbarInView = (toolbar: HTMLElement): (() => void) => {
   const update = (): void => {
     toolbar.style.transform = ''
 
-    const scroller = findScrollContainer(toolbar)
     const toolbarRect = toolbar.getBoundingClientRect()
 
     const offset = getStickyOffset({
-      scrollerTop: scroller?.getBoundingClientRect().top ?? 0,
+      scrollerTop: getVisibleTop(toolbar),
       toolbarTop: toolbarRect.top,
       toolbarHeight: toolbarRect.height,
       wrapperBottom: wrapper.getBoundingClientRect().bottom
