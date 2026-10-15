@@ -89,6 +89,63 @@ describe('getVisibleTop', () => {
     expect(getVisibleTop(field)).toBe(100)
   })
 
+  describe('with a sticky header stuck over the top of the scroll area', () => {
+    const originalElementsFromPoint = document.elementsFromPoint
+
+    const stickyHeader = (top: number, height: number): HTMLElement => {
+      const header = document.createElement('div')
+      header.style.position = 'sticky'
+      header.getBoundingClientRect = () => rect(top, height)
+      document.body.appendChild(header)
+
+      return header
+    }
+
+    afterEach(() => { document.elementsFromPoint = originalElementsFromPoint })
+
+    it('sits below that header instead of underneath it', () => {
+      const scroller = withTop(makeScroller('auto', 2000, 500), 100)
+      const field = document.createElement('div')
+      scroller.appendChild(field)
+      const header = stickyHeader(100, 36)
+      document.elementsFromPoint = () => [header]
+
+      expect(getVisibleTop(field)).toBe(136)
+    })
+
+    it('ignores a sticky element that does not reach the top edge', () => {
+      const scroller = withTop(makeScroller('auto', 2000, 500), 100)
+      const field = document.createElement('div')
+      scroller.appendChild(field)
+      const footer = stickyHeader(400, 36)
+      document.elementsFromPoint = () => [footer]
+
+      expect(getVisibleTop(field)).toBe(100)
+    })
+
+    it('ignores a sticky element that contains the toolbar itself', () => {
+      const scroller = withTop(makeScroller('auto', 2000, 500), 100)
+      const holder = stickyHeader(100, 36)
+      const field = document.createElement('div')
+      holder.appendChild(field)
+      scroller.appendChild(holder)
+      document.elementsFromPoint = () => [holder]
+
+      expect(getVisibleTop(field)).toBe(100)
+    })
+
+    it('stacks several sticky bars one below the other', () => {
+      const scroller = withTop(makeScroller('auto', 2000, 500), 100)
+      const field = document.createElement('div')
+      scroller.appendChild(field)
+      const first = stickyHeader(100, 36)
+      const second = stickyHeader(136, 20)
+      document.elementsFromPoint = (_x: number, y: number) => y < 136 ? [first] : [second]
+
+      expect(getVisibleTop(field)).toBe(156)
+    })
+  })
+
   it('is 0 when nothing but the page scrolls', () => {
     const inner = document.createElement('div')
     document.body.appendChild(inner)

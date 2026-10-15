@@ -37,12 +37,50 @@ export const getStickyOffset = ({ scrollerTop, toolbarTop, toolbarHeight, wrappe
 
 const SCROLLING_OVERFLOW = ['auto', 'scroll', 'overlay']
 
+/** how many sticky bars stacked at the top are looked through; more than a few is not realistic */
+const MAX_STICKY_BARS = 4
+
+/**
+ * The bottom edge of a sticky bar (a tab strip, a header) stuck over the point just below `top`,
+ * or `top` itself when none covers it. The toolbar would otherwise sit underneath it. Only a
+ * sticky element counts: a fixed one, such as a modal, does not belong to the scroll area, and an
+ * element holding the toolbar is no bar above it.
+ */
+const clearStickyBars = (element: HTMLElement, top: number): number => {
+  if (typeof document.elementsFromPoint !== 'function') {
+    return top
+  }
+
+  const rect = element.getBoundingClientRect()
+  const x = rect.left + rect.width / 2
+
+  for (let bars = 0; bars < MAX_STICKY_BARS; bars++) {
+    const bar = document
+      .elementsFromPoint(x, top + 1)
+      .find((candidate) => (
+        getComputedStyle(candidate).position === 'sticky' &&
+        !candidate.contains(element) &&
+        candidate.getBoundingClientRect().top <= top + 1 &&
+        candidate.getBoundingClientRect().bottom > top + 1
+      ))
+
+    if (bar === undefined) {
+      break
+    }
+
+    top = bar.getBoundingClientRect().bottom
+  }
+
+  return top
+}
+
 /**
  * The top edge of the area in which the element is visible: the lowest top edge among the
- * viewport and every ancestor the user can actually scroll. With nested scroll areas the outer one
- * can have scrolled past the inner one's top, so the nearest scroller alone is not enough. A box
- * that merely allows scrolling but grows with its content never scrolls, and CSS
- * `position: sticky` still takes it as its scroll area, which is why it is skipped here.
+ * viewport and every ancestor the user can actually scroll, moved down past any sticky bar stuck
+ * there. With nested scroll areas the outer one can have scrolled past the inner one's top, so
+ * the nearest scroller alone is not enough. A box that merely allows scrolling but grows with its
+ * content never scrolls, and CSS `position: sticky` still takes it as its scroll area, which is
+ * why it is skipped here.
  */
 export const getVisibleTop = (element: HTMLElement): number => {
   let top = 0
@@ -55,7 +93,7 @@ export const getVisibleTop = (element: HTMLElement): number => {
     }
   }
 
-  return top
+  return clearStickyBars(element, top)
 }
 
 /**
