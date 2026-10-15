@@ -23,7 +23,16 @@ export const useStyles = createStyles(({ token }) => {
       }
     },
 
+    // Stays at the top edge of the scroll container while a long field scrolls past, so the
+    // controls remain within reach. It needs a background of its own, or the content would show
+    // through, and a stacking order above that content.
     toolbar: {
+      position: 'sticky',
+      top: 0,
+      zIndex: 1,
+      backgroundColor: token.colorBgContainer,
+      borderTopLeftRadius: `${token.borderRadius}px`,
+      borderTopRightRadius: `${token.borderRadius}px`,
       display: 'flex',
       flexWrap: 'wrap',
       alignItems: 'center',

@@ -41,6 +41,37 @@ const renderToolbar = (overrides: Partial<EditorToolbarProps> = {}): EditorToolb
 }
 
 describe('EditorToolbar', () => {
+  describe('in a field longer than its scroll container', () => {
+    const getToolbar = (): HTMLElement => {
+      const toolbar = screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }).parentElement
+
+      if (toolbar === null) {
+        throw new Error('toolbar not found')
+      }
+
+      return toolbar
+    }
+
+    it('keeps the toolbar at the top edge while the content scrolls', () => {
+      renderToolbar()
+
+      const style = getComputedStyle(getToolbar())
+
+      expect(style.position).toBe('sticky')
+      expect(style.top).toBe('0px')
+    })
+
+    it('paints the toolbar over the content scrolling beneath it', () => {
+      renderToolbar()
+
+      const style = getComputedStyle(getToolbar())
+
+      expect(style.backgroundColor).not.toBe('')
+      expect(style.backgroundColor).not.toBe('transparent')
+      expect(Number(style.zIndex)).toBeGreaterThan(0)
+    })
+  })
+
   it('pastes as plain text the moment the button is clicked', () => {
     const props = renderToolbar()
 
