@@ -8,11 +8,12 @@
  *  @license    Pimcore Open Core License (POCL)
  */
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Button, Input, Popover, Select, Tooltip } from 'antd'
 import { useTranslation } from '@pimcore/studio-ui-bundle/app'
 import { useStyles } from './custom-wysiwyg-editor.styles'
 import { type FormatState, type InlineMark } from './use-editor-selection'
+import { useStickyToolbar } from './sticky-toolbar'
 import {
   BlockquoteIcon,
   BoldIcon,
@@ -67,6 +68,9 @@ export const EditorToolbar = ({
   const { styles, cx } = useStyles()
   const [linkUrl, setLinkUrl] = useState('')
   const [linkText, setLinkText] = useState('')
+  const toolbarRef = useRef<HTMLDivElement>(null)
+
+  useStickyToolbar(toolbarRef)
 
   // the caret sits in a link, so the popover changes that link rather than adding one
   const editsLink = formatState.linkUrl !== undefined
@@ -136,6 +140,7 @@ export const EditorToolbar = ({
     <div
       className={ styles.toolbar }
       onMouseDown={ preventFocusSteal }
+      ref={ toolbarRef }
     >
       { toolbarButton(<UndoIcon />, t('wysiwyg-editor.toolbar.undo'), () => { onCommand('undo') }) }
       { toolbarButton(<RedoIcon />, t('wysiwyg-editor.toolbar.redo'), () => { onCommand('redo') }) }
