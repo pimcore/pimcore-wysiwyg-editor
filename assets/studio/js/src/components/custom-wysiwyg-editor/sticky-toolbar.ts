@@ -89,11 +89,19 @@ export const keepToolbarInView = (toolbar: HTMLElement): (() => void) => {
   // a scroll event does not bubble, so it is caught on the way down, whichever box scrolls
   document.addEventListener('scroll', update, { capture: true, passive: true })
   window.addEventListener('resize', update)
+
+  // The field can shrink or grow, or the toolbar wrap, without any scroll or window resize, and
+  // the offset measured earlier would then leave the toolbar outside its field.
+  const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
+  observer?.observe(wrapper)
+  observer?.observe(toolbar)
+
   update()
 
   return () => {
     document.removeEventListener('scroll', update, { capture: true })
     window.removeEventListener('resize', update)
+    observer?.disconnect()
     toolbar.style.transform = ''
   }
 }

@@ -105,7 +105,10 @@ describe('useStickyToolbar', () => {
     return { toolbar, scroller }
   }
 
-  afterEach(() => { document.body.innerHTML = '' })
+  afterEach(() => {
+    document.body.innerHTML = ''
+    delete (window as { ResizeObserver?: unknown }).ResizeObserver
+  })
 
   it('shifts the toolbar down to the scroll container edge once the field scrolled past it', () => {
     const { toolbar, scroller } = setup(-400)
@@ -121,5 +124,40 @@ describe('useStickyToolbar', () => {
     scroller.dispatchEvent(new Event('scroll'))
 
     expect(toolbar.style.transform).toBe('')
+  })
+  describe('when the field changes size without a scroll', () => {
+    let notifyResize: () => void
+    const disconnect = jest.fn()
+
+    beforeEach(() => {
+      disconnect.mockClear()
+      ;(window as { ResizeObserver?: unknown }).ResizeObserver = class {
+        constructor (callback: () => void) { notifyResize = callback }
+        observe = jest.fn()
+        disconnect = disconnect
+      }
+    })
+
+    it('moves the toolbar back inside the field once the field shrank', () => {
+      const { toolbar, scroller } = setup(-300)
+      const wrapper = toolbar.parentElement as HTMLElement
+
+      scroller.dispatchEvent(new Event('scroll'))
+      expect(toolbar.style.transform).toBe('translateY(400px)')
+
+      // the field is now much shorter: its bottom edge is only 130px into the view
+      wrapper.getBoundingClientRect = () => rect(-400, 530)
+      notifyResize()
+
+      expect(toolbar.style.transform).toBe('translateY(398px)')
+    })
+
+    it('stops watching when the toolbar goes away', () => {
+      const { toolbar } = setup(-300)
+
+      render(<div />, { container: toolbar.parentElement as HTMLElement })
+
+      expect(disconnect).toHaveBeenCalled()
+    })
   })
 })
