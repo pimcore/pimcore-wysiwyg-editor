@@ -24,10 +24,10 @@
   "require-dev": {
     "roave/security-advisories": "dev-latest",
     "codeception/codeception": "^5.0.10",
-    "codeception/module-asserts": "^2",
+    "codeception/module-asserts": "^3.0",
     "codeception/module-symfony": "^3.1.1",
-    "phpstan/phpstan": "^1.10.5",
-    "phpstan/phpstan-symfony": "^1.2.20",
+    "phpstan/phpstan": "^2.3.5",
+    "phpstan/phpstan-symfony": "^2.0",
     "phpunit/phpunit": "^12.5.23",
     "nyholm/psr7": "^1",
     "symfony/phpunit-bridge": "^6",
