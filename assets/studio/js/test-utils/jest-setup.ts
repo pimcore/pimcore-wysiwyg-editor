@@ -22,3 +22,20 @@ Object.defineProperty(globalThis, 'matchMedia', {
     dispatchEvent: jest.fn()
   }))
 })
+
+// jsdom 26 (jest 30) moves the selection to the start of an element on focus(), even when it
+// already lies inside it; browsers keep it. Restore the selection that was inside the element.
+const originalFocus = HTMLElement.prototype.focus
+
+HTMLElement.prototype.focus = function focus (this: HTMLElement, options?: FocusOptions): void {
+  const selection = this.ownerDocument.getSelection()
+  const saved = selection !== null && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null
+  const wasInside = saved !== null && this.contains(saved.commonAncestorContainer)
+
+  originalFocus.call(this, options)
+
+  if (wasInside && saved !== null && selection !== null) {
+    selection.removeAllRanges()
+    selection.addRange(saved)
+  }
+}
