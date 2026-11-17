@@ -170,4 +170,41 @@ describe('EditorToolbar', () => {
 
     expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.link' })).toHaveAttribute('aria-pressed', 'false')
   })
+
+  describe('alignment', () => {
+    it.each([
+      ['wysiwyg-editor.toolbar.align-left', 'justifyLeft'],
+      ['wysiwyg-editor.toolbar.align-center', 'justifyCenter'],
+      ['wysiwyg-editor.toolbar.align-right', 'justifyRight'],
+      ['wysiwyg-editor.toolbar.align-justify', 'justifyFull']
+    ])('%s runs %s', (name, command) => {
+      const props = renderToolbar()
+
+      fireEvent.click(screen.getByRole('button', { name }))
+
+      expect(props.onCommand).toHaveBeenCalledTimes(1)
+      expect(props.onCommand).toHaveBeenCalledWith(command, undefined)
+    })
+
+    it('marks only the button of the current alignment as pressed', () => {
+      renderToolbar({
+        formatState: {
+          bold: false,
+          italic: false,
+          unorderedList: false,
+          orderedList: false,
+          blockquote: false,
+          alignment: 'center',
+          canIndent: false,
+          canOutdent: false,
+          hasSelection: false
+        }
+      })
+
+      expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.align-center' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.align-left' })).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.align-right' })).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.align-justify' })).toHaveAttribute('aria-pressed', 'false')
+    })
+  })
 })

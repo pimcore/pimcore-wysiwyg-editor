@@ -14,6 +14,7 @@ link popover, the code view) is open.
 | Undo / Redo | The browser's own undo history; every toolbar edit except applying the code view is a single undoable step. |
 | Format | A dropdown for the current block: Paragraph or Heading 1–6. |
 | Bold / Italic | Toggles on the selection. A button lights up when the caret sits in bold or italic text, including inside a heading, without reporting a heading itself as bold. |
+| Align left / center / right / justify | Aligns every block the selection touches — paragraphs, headings, list items, blockquotes. The button of the alignment the caret's block renders with lights up, described below. |
 | Bulleted list / Numbered list | Toggles the current block into a list, or back to a paragraph. |
 | Indent / Outdent | Nests the current list item under the one before it, or lifts it back out. Only available inside a list, and only where a preceding (indent) or a nesting (outdent) item exists. |
 | Blockquote | Applies blockquote formatting to the current block. Unlike the list buttons, this does not toggle off again on a second click. |
@@ -68,6 +69,28 @@ Those attributes are what lets Pimcore
 
 Changing a link's address through the **Update** popover drops these attributes, since Pimcore
 would otherwise rewrite the new address back to the original element's path on output.
+
+## Text alignment
+
+The alignment buttons use the browser's own justify commands, so a single click aligns every
+block the selection reaches and is one undoable step. Each block gets an inline style, the same
+markup the classic editors produced:
+
+```html
+<p style="text-align: center;">Centered paragraph</p>
+<h2 style="text-align: right;">Right-aligned heading</h2>
+```
+
+Text that sits directly in the field, outside any block, is wrapped in a `div` carrying the style.
+**Align left** writes an explicit `text-align: left` rather than removing the style, so a
+paragraph can be set left inside a page whose surrounding markup centers the field.
+
+The highlighted button reflects how the block is rendered, not only its own style: in a field the
+page centers, the center button lights up for unstyled text as well.
+
+Pimcore's default wysiwyg sanitizer allows `style` on `p`, `div`, `li` and table cells, but not on
+`h1`–`h6` or `blockquote`. Alignment on those is kept only where the project allows `style` for
+them in its `framework.html_sanitizer` configuration.
 
 ## Numbered list display
 

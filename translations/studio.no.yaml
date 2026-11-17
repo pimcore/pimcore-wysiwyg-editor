@@ -1,6 +1,10 @@
 wysiwyg-editor.toolbar.block-format: Format
 wysiwyg-editor.toolbar.bold: Fet
 wysiwyg-editor.toolbar.italic: Kursiv
+wysiwyg-editor.toolbar.align-left: Venstrejuster
+wysiwyg-editor.toolbar.align-center: Midtstill
+wysiwyg-editor.toolbar.align-right: Høyrejuster
+wysiwyg-editor.toolbar.align-justify: Blokkjuster
 wysiwyg-editor.toolbar.unordered-list: Punktliste
 wysiwyg-editor.toolbar.ordered-list: Nummerert liste
 wysiwyg-editor.toolbar.indent: Øk innrykk

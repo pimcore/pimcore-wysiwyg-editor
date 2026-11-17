@@ -19,6 +19,8 @@ export interface FormatState {
   orderedList: boolean
   blockquote: boolean
   block?: string
+  /** the alignment of the block the caret sits in, as the browser computes it */
+  alignment?: Alignment
   /** an item can only be nested under a preceding one, so the first item of a list cannot indent */
   canIndent: boolean
   /** only an item that is already nested has a level to move out to */
@@ -45,6 +47,7 @@ const EMPTY_FORMAT_STATE: FormatState = {
   orderedList: false,
   blockquote: false,
   block: undefined,
+  alignment: undefined,
   canIndent: false,
   canOutdent: false,
   hasSelection: false,
@@ -52,6 +55,27 @@ const EMPTY_FORMAT_STATE: FormatState = {
 }
 
 export type InlineMark = 'bold' | 'italic'
+
+export type Alignment = 'left' | 'center' | 'right' | 'justify'
+
+/** The browser command that applies each alignment to the blocks the selection touches. */
+export const ALIGNMENT_COMMANDS: Record<Alignment, string> = {
+  left: 'justifyLeft',
+  center: 'justifyCenter',
+  right: 'justifyRight',
+  justify: 'justifyFull'
+}
+
+export const isAlignmentCommand = (command: string): boolean =>
+  Object.values(ALIGNMENT_COMMANDS).includes(command)
+
+/**
+ * The alignment the caret's block renders with. Read from the browser rather than from a style
+ * attribute, so text that is centred by the page around the field — not by the field itself —
+ * still shows as centred, which is what the user sees.
+ */
+const queryAlignment = (doc: Document): Alignment | undefined =>
+  (Object.keys(ALIGNMENT_COMMANDS) as Alignment[]).find((alignment) => queryState(doc, ALIGNMENT_COMMANDS[alignment]))
 
 interface InlineMarkDefinition {
   tag: string
@@ -240,6 +264,7 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
       orderedList: queryState(doc, 'insertOrderedList'),
       blockquote: block === 'blockquote',
       block,
+      alignment: queryAlignment(doc),
       canIndent: !isNil(listItem) && canNestItem(listItem),
       canOutdent: !isNil(listItem) && isNestedItem(listItem),
       hasSelection: !range.collapsed,

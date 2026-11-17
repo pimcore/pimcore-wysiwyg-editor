@@ -1,6 +1,10 @@
 wysiwyg-editor.toolbar.block-format: Format
 wysiwyg-editor.toolbar.bold: Gras
 wysiwyg-editor.toolbar.italic: Italique
+wysiwyg-editor.toolbar.align-left: Aligner à gauche
+wysiwyg-editor.toolbar.align-center: Centrer
+wysiwyg-editor.toolbar.align-right: Aligner à droite
+wysiwyg-editor.toolbar.align-justify: Justifier
 wysiwyg-editor.toolbar.unordered-list: Liste à puces
 wysiwyg-editor.toolbar.ordered-list: Liste numérotée
 wysiwyg-editor.toolbar.indent: Augmenter le retrait

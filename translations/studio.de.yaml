@@ -1,6 +1,10 @@
 wysiwyg-editor.toolbar.block-format: Format
 wysiwyg-editor.toolbar.bold: Fett
 wysiwyg-editor.toolbar.italic: Kursiv
+wysiwyg-editor.toolbar.align-left: Linksbündig
+wysiwyg-editor.toolbar.align-center: Zentriert
+wysiwyg-editor.toolbar.align-right: Rechtsbündig
+wysiwyg-editor.toolbar.align-justify: Blocksatz
 wysiwyg-editor.toolbar.unordered-list: Aufzählungsliste
 wysiwyg-editor.toolbar.ordered-list: Nummerierte Liste
 wysiwyg-editor.toolbar.indent: Einrücken

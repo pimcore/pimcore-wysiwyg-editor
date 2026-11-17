@@ -18,7 +18,19 @@ import { INLINE_TAGS } from './use-editor-selection'
 const PASTE_BUTTON = 'wysiwyg-editor.toolbar.paste-plain-text'
 const HORIZONTAL_RULE_BUTTON = 'wysiwyg-editor.toolbar.horizontal-rule'
 
-const MUTATING_COMMANDS = ['insertText', 'insertHorizontalRule', 'insertHTML']
+/**
+ * What Chrome's justify commands write, measured against it directly: an inline `text-align` on
+ * the block the caret sits in (a paragraph, heading, list item or blockquote alike), loose text
+ * wrapped in a div carrying it, and an explicit `left` rather than no style for justifyLeft.
+ */
+const JUSTIFY_COMMANDS: Record<string, string> = {
+  justifyLeft: 'left',
+  justifyCenter: 'center',
+  justifyRight: 'right',
+  justifyFull: 'justify'
+}
+
+const MUTATING_COMMANDS = ['insertText', 'insertHorizontalRule', 'insertHTML', ...Object.keys(JUSTIFY_COMMANDS)]
 
 /**
  * jsdom has no execCommand; this stand-in mimics the browser closely enough for the emitted value,
@@ -105,6 +117,29 @@ const installExecCommand = (content: HTMLElement): jest.Mock => {
 
     if (command === 'insertHorizontalRule') {
       content.append(content.ownerDocument.createElement('hr'))
+    }
+
+    if (command in JUSTIFY_COMMANDS) {
+      const selection = content.ownerDocument.getSelection()
+      let block: Node | null = selection === null || selection.rangeCount === 0
+        ? null
+        : selection.getRangeAt(0).startContainer
+
+      while (block !== null && block.parentNode !== content && !(block instanceof HTMLLIElement)) {
+        block = block.parentNode
+      }
+
+      if (block instanceof Text) {
+        const wrapper = content.ownerDocument.createElement('div')
+
+        block.replaceWith(wrapper)
+        wrapper.append(block)
+        block = wrapper
+      }
+
+      if (block instanceof HTMLElement) {
+        block.style.textAlign = JUSTIFY_COMMANDS[command]
+      }
     }
 
     if (command === 'insertHTML' && argument !== undefined) {
@@ -266,6 +301,119 @@ describe('CustomWysiwygEditor horizontal rule', () => {
 
     expect(execCommand).toHaveBeenCalledWith('insertHorizontalRule', false, undefined)
     expect(onChange).toHaveBeenLastCalledWith('<p>kept</p><hr>')
+  })
+})
+
+describe('CustomWysiwygEditor alignment', () => {
+  const placeCaret = (node: Node, offset: number): void => {
+    const range = document.createRange()
+    range.setStart(node, offset)
+    range.collapse(true)
+    const selection = document.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  }
+
+  it.each([
+    ['wysiwyg-editor.toolbar.align-left', 'justifyLeft', 'left'],
+    ['wysiwyg-editor.toolbar.align-center', 'justifyCenter', 'center'],
+    ['wysiwyg-editor.toolbar.align-right', 'justifyRight', 'right'],
+    ['wysiwyg-editor.toolbar.align-justify', 'justifyFull', 'justify']
+  ])('%s aligns the block the caret sits in and emits it', (name, command, value) => {
+    const { onChange, content } = renderEditor('<p>one</p><p>two</p>')
+    const execCommand = installExecCommand(content)
+
+    placeCaret(content.firstChild!.firstChild!, 1)
+    fireEvent.click(screen.getByRole('button', { name }))
+
+    expect(execCommand).toHaveBeenCalledWith(command)
+    expect(onChange).toHaveBeenLastCalledWith(`<p style="text-align: ${value};">one</p><p>two</p>`)
+  })
+
+  it('writes the alignment as a style, and switches that mode off again right after', () => {
+    const { content } = renderEditor()
+    const execCommand = installExecCommand(content)
+
+    placeCaret(content.firstChild!.firstChild!, 1)
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.align-center' }))
+
+    const calls = execCommand.mock.calls.map(([command, , argument]) => [command, argument])
+
+    // left on, styleWithCSS would turn a later collapsed bold into a styled span
+    expect(calls).toEqual([
+      ['styleWithCSS', 'true'],
+      ['justifyCenter', undefined],
+      ['styleWithCSS', 'false']
+    ])
+  })
+
+  it('switches the style mode off again even when the command throws', () => {
+    const { content } = renderEditor()
+    const execCommand = installExecCommand(content)
+    const passThrough = execCommand.getMockImplementation()
+
+    execCommand.mockImplementation((command: string, ui?: boolean, argument?: string) => {
+      if (command === 'justifyCenter') {
+        throw new Error('not supported')
+      }
+
+      return passThrough?.(command, ui, argument)
+    })
+
+    // React reports an error thrown in an event handler instead of passing it on; keep it quiet
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+    const swallow = (event: ErrorEvent): void => { event.preventDefault() }
+
+    window.addEventListener('error', swallow)
+
+    try {
+      placeCaret(content.firstChild!.firstChild!, 1)
+      fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.align-center' }))
+    } finally {
+      window.removeEventListener('error', swallow)
+      consoleError.mockRestore()
+    }
+
+    expect(execCommand).toHaveBeenCalledWith('justifyCenter')
+    expect(execCommand).toHaveBeenLastCalledWith('styleWithCSS', false, 'false')
+  })
+
+  it('aligns a list item without touching the rest of the list', () => {
+    const { onChange, content } = renderEditor('<ul><li>a</li><li>b</li></ul>')
+
+    installExecCommand(content)
+    placeCaret(content.querySelector('li')!.firstChild!, 0)
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.align-right' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<ul><li style="text-align: right;">a</li><li>b</li></ul>')
+  })
+
+  it('can be undone in one step', () => {
+    const { onChange, content } = renderEditor()
+
+    installExecCommand(content)
+    placeCaret(content.firstChild!.firstChild!, 1)
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.align-center' }))
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p>kept</p>')
+  })
+
+  it('shows the alignment of the block the caret sits in', () => {
+    const { content } = renderEditor('<p style="text-align: center;">kept</p>')
+
+    installExecCommand(content)
+    const queryCommandState = document.queryCommandState as jest.Mock
+
+    queryCommandState.mockImplementation((command: string) => command === 'justifyCenter')
+
+    act(() => {
+      placeCaret(content.firstChild!.firstChild!, 1)
+      document.dispatchEvent(new Event('selectionchange'))
+    })
+
+    expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.align-center' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.align-left' })).toHaveAttribute('aria-pressed', 'false')
   })
 })
 

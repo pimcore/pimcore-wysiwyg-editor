@@ -1,6 +1,10 @@
 wysiwyg-editor.toolbar.block-format: Format
 wysiwyg-editor.toolbar.bold: Pogrubienie
 wysiwyg-editor.toolbar.italic: Kursywa
+wysiwyg-editor.toolbar.align-left: Wyrównaj do lewej
+wysiwyg-editor.toolbar.align-center: Wyśrodkuj
+wysiwyg-editor.toolbar.align-right: Wyrównaj do prawej
+wysiwyg-editor.toolbar.align-justify: Wyjustuj
 wysiwyg-editor.toolbar.unordered-list: Lista wypunktowana
 wysiwyg-editor.toolbar.ordered-list: Lista numerowana
 wysiwyg-editor.toolbar.indent: Zwiększ wcięcie

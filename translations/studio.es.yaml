@@ -1,6 +1,10 @@
 wysiwyg-editor.toolbar.block-format: Formato
 wysiwyg-editor.toolbar.bold: Negrita
 wysiwyg-editor.toolbar.italic: Cursiva
+wysiwyg-editor.toolbar.align-left: Alinear a la izquierda
+wysiwyg-editor.toolbar.align-center: Centrar
+wysiwyg-editor.toolbar.align-right: Alinear a la derecha
+wysiwyg-editor.toolbar.align-justify: Justificar
 wysiwyg-editor.toolbar.unordered-list: Lista con viñetas
 wysiwyg-editor.toolbar.ordered-list: Lista numerada
 wysiwyg-editor.toolbar.indent: Aumentar sangría
