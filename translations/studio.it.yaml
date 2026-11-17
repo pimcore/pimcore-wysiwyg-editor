@@ -1,6 +1,10 @@
 wysiwyg-editor.toolbar.block-format: Formato
 wysiwyg-editor.toolbar.bold: Grassetto
 wysiwyg-editor.toolbar.italic: Corsivo
+wysiwyg-editor.toolbar.align-left: Allinea a sinistra
+wysiwyg-editor.toolbar.align-center: Centra
+wysiwyg-editor.toolbar.align-right: Allinea a destra
+wysiwyg-editor.toolbar.align-justify: Giustifica
 wysiwyg-editor.toolbar.unordered-list: Elenco puntato
 wysiwyg-editor.toolbar.ordered-list: Elenco numerato
 wysiwyg-editor.toolbar.indent: Aumenta rientro

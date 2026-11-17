@@ -23,6 +23,7 @@ import {
   findEnclosingLink,
   findInlineMark,
   findListItem,
+  isAlignmentCommand,
   isBlockElement,
   isBoldWeight,
   isItalicStyle,
@@ -919,6 +920,8 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       if (!isNil(listItem) && argument !== undefined) {
         // inside a list execCommand would split the list around the item and restart its numbering
         mutateWithHistory(listItem, (draft) => { applyBlockToListItem(draft, argument) })
+      } else if (isAlignmentCommand(command)) {
+        applyAlignment(command)
       } else {
         // deliberately kept on the deprecated-but-universal execCommand API to stay dependency-free;
         // formatBlock is the one command whose argument format differs per engine — the
@@ -929,6 +932,32 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
 
       emitChange()
       refreshFormatState()
+    }
+
+    /**
+     * Aligns every block the selection touches through the browser's own justify commands: they
+     * find those blocks across paragraphs, headings and list items alike, wrap loose text in a
+     * block of its own, and land in the undo history as one step.
+     *
+     * The result is an inline `text-align` style on each block — the markup the classic editors
+     * produced, which a page renders without any stylesheet of its own. `styleWithCSS` is switched
+     * on for the command alone: without it Firefox writes the obsolete `align` attribute instead,
+     * and left on it would turn a later collapsed bold or italic into a styled span.
+     */
+    const applyAlignment = (command: string): void => {
+      const doc = contentRef.current?.ownerDocument
+
+      if (isNil(doc)) {
+        return
+      }
+
+      doc.execCommand('styleWithCSS', false, 'true')
+
+      try {
+        doc.execCommand(command)
+      } finally {
+        doc.execCommand('styleWithCSS', false, 'false')
+      }
     }
 
     /**

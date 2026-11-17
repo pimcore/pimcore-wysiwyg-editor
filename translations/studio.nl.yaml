@@ -1,6 +1,10 @@
 wysiwyg-editor.toolbar.block-format: Formaat
 wysiwyg-editor.toolbar.bold: Vet
 wysiwyg-editor.toolbar.italic: Cursief
+wysiwyg-editor.toolbar.align-left: Links uitlijnen
+wysiwyg-editor.toolbar.align-center: Centreren
+wysiwyg-editor.toolbar.align-right: Rechts uitlijnen
+wysiwyg-editor.toolbar.align-justify: Uitvullen
 wysiwyg-editor.toolbar.unordered-list: Lijst met opsommingstekens
 wysiwyg-editor.toolbar.ordered-list: Genummerde lijst
 wysiwyg-editor.toolbar.indent: Inspringen

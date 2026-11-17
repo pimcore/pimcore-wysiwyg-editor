@@ -6,8 +6,8 @@ editor library involved.
 
 ## Features in a Nutshell
 
-- Formatting: bold, italic, headings 1–6, bulleted and numbered lists with indent/outdent,
-  blockquote, horizontal rule, remove formatting.
+- Formatting: bold, italic, headings 1–6, text alignment, bulleted and numbered lists with
+  indent/outdent, blockquote, horizontal rule, remove formatting.
 - Links and images inserted by dragging a document, asset or object from the Studio element
   tree; a link can also be typed in by URL through the toolbar, and an existing one edited
   in place.

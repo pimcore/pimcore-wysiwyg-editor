@@ -1,6 +1,10 @@
 wysiwyg-editor.toolbar.block-format: Format
 wysiwyg-editor.toolbar.bold: Bold
 wysiwyg-editor.toolbar.italic: Italic
+wysiwyg-editor.toolbar.align-left: Align left
+wysiwyg-editor.toolbar.align-center: Align center
+wysiwyg-editor.toolbar.align-right: Align right
+wysiwyg-editor.toolbar.align-justify: Justify
 wysiwyg-editor.toolbar.unordered-list: Bulleted list
 wysiwyg-editor.toolbar.ordered-list: Numbered list
 wysiwyg-editor.toolbar.indent: Indent
