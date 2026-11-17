@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Ausrücken
 wysiwyg-editor.toolbar.blockquote: Blockzitat
 wysiwyg-editor.toolbar.horizontal-rule: Horizontale Linie
 wysiwyg-editor.toolbar.link: Link einfügen
+wysiwyg-editor.toolbar.image: "Bild einfügen/bearbeiten"
 wysiwyg-editor.toolbar.remove-format: Formatierung entfernen
 wysiwyg-editor.toolbar.paste-plain-text: Als unformatierten Text einfügen
 wysiwyg-editor.toolbar.paste-plain-text-unavailable: "Der Zugriff auf die Zwischenablage wurde nicht erlaubt. Verwenden Sie Strg+Umschalt+V (⌘+Umschalt+V auf dem Mac), um als unformatierten Text einzufügen."
@@ -25,6 +26,13 @@ wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Link-Text (optional)
 wysiwyg-editor.link.insert: Einfügen
 wysiwyg-editor.link.update: Aktualisieren
+wysiwyg-editor.image.width: Breite
+wysiwyg-editor.image.height: Höhe
+wysiwyg-editor.image.keep-proportions: Proportionen beibehalten
+wysiwyg-editor.image.apply: Übernehmen
+wysiwyg-editor.image.insert: "Einfügen"
+wysiwyg-editor.image.alt: "Alternativtext"
+wysiwyg-editor.image.choose-other: "Anderes Bild wählen"
 wysiwyg-editor.code-view.title: HTML-Quelltext bearbeiten
 wysiwyg-editor.code-view.apply: Übernehmen
 wysiwyg-editor.code-view.cancel: Abbrechen

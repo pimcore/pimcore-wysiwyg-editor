@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Reducir sangría
 wysiwyg-editor.toolbar.blockquote: Cita
 wysiwyg-editor.toolbar.horizontal-rule: Línea horizontal
 wysiwyg-editor.toolbar.link: Insertar enlace
+wysiwyg-editor.toolbar.image: "Insertar/editar imagen"
 wysiwyg-editor.toolbar.remove-format: Quitar formato
 wysiwyg-editor.toolbar.paste-plain-text: Pegar como texto sin formato
 wysiwyg-editor.toolbar.paste-plain-text-unavailable: "No se ha concedido acceso al portapapeles. Utilice Ctrl+Mayús+V (⌘+Mayús+V en Mac) para pegar como texto sin formato."
@@ -25,6 +26,13 @@ wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Texto del enlace (opcional)
 wysiwyg-editor.link.insert: Insertar
 wysiwyg-editor.link.update: Actualizar
+wysiwyg-editor.image.width: Ancho
+wysiwyg-editor.image.height: Alto
+wysiwyg-editor.image.keep-proportions: Mantener proporciones
+wysiwyg-editor.image.apply: Aplicar
+wysiwyg-editor.image.insert: "Insertar"
+wysiwyg-editor.image.alt: "Texto alternativo"
+wysiwyg-editor.image.choose-other: "Elegir otra imagen"
 wysiwyg-editor.code-view.title: Editar código fuente HTML
 wysiwyg-editor.code-view.apply: Aplicar
 wysiwyg-editor.code-view.cancel: Cancelar

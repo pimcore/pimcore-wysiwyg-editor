@@ -27,6 +27,7 @@ const config: Config = {
     '^@pimcore/studio-ui-bundle/components$': '<rootDir>/js/test-utils/mocks/studio-ui-components-mock.ts',
     '^@pimcore/studio-ui-bundle/modules/app$': '<rootDir>/js/test-utils/mocks/studio-ui-modules-app-mock.ts',
     '^@pimcore/studio-ui-bundle/utils$': '<rootDir>/js/test-utils/mocks/studio-ui-utils-mock.ts',
+    '^@pimcore/studio-ui-bundle/modules/element$': '<rootDir>/js/test-utils/mocks/studio-ui-modules-element-mock.ts',
     '^@pimcore/studio-ui-bundle(/.*)?$': '<rootDir>/js/test-utils/mocks/studio-ui-generic-mock.ts'
   }
 }

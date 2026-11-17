@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Reduser innrykk
 wysiwyg-editor.toolbar.blockquote: Blokksitat
 wysiwyg-editor.toolbar.horizontal-rule: Horisontal linje
 wysiwyg-editor.toolbar.link: Sett inn lenke
+wysiwyg-editor.toolbar.image: "Sett inn/rediger bilde"
 wysiwyg-editor.toolbar.remove-format: Fjern formatering
 wysiwyg-editor.toolbar.paste-plain-text: Lim inn som ren tekst
 wysiwyg-editor.toolbar.paste-plain-text-unavailable: "Tilgang til utklippstavlen ble ikke gitt. Bruk Ctrl+Shift+V (⌘+Shift+V på Mac) for å lime inn som ren tekst."
@@ -25,6 +26,13 @@ wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Lenketekst (valgfritt)
 wysiwyg-editor.link.insert: Sett inn
 wysiwyg-editor.link.update: Oppdater
+wysiwyg-editor.image.width: Bredde
+wysiwyg-editor.image.height: Høyde
+wysiwyg-editor.image.keep-proportions: Behold proporsjoner
+wysiwyg-editor.image.apply: Bruk
+wysiwyg-editor.image.insert: "Sett inn"
+wysiwyg-editor.image.alt: "Alternativ tekst"
+wysiwyg-editor.image.choose-other: "Velg et annet bilde"
 wysiwyg-editor.code-view.title: Rediger HTML-kilde
 wysiwyg-editor.code-view.apply: Bruk
 wysiwyg-editor.code-view.cancel: Avbryt
