@@ -11,6 +11,8 @@ editor library involved.
 - Links and images inserted by dragging a document, asset or object from the Studio element
   tree; a link can also be typed in by URL through the toolbar, and an existing one edited
   in place.
+- An image dialog: insert an image asset picked in the element selector, or change the selected
+  image's file, alternative text and size in pixels, keeping its proportions on request.
 - A code view to inspect and edit the raw HTML directly.
 - Paste as plain text, undo/redo, and full keyboard/focus behavior matching a native field.
 - Stores plain HTML — the field's value is exactly what a document or data object shows.

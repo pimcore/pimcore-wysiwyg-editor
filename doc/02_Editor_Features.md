@@ -19,6 +19,7 @@ link popover, the code view) is open.
 | Blockquote | Applies blockquote formatting to the current block. Unlike the list buttons, this does not toggle off again on a second click. |
 | Horizontal rule | Inserts a rule at the caret. |
 | Insert link | Opens a popover for a URL, described below. |
+| Insert/edit image | Inserts an image asset picked in the element selector, or edits the selected image, described below. |
 | Remove formatting | Clears inline formatting from the selection. |
 | Paste as plain text | Inserts the clipboard's text content, stripped of formatting, at the caret. Requires clipboard-read permission; if the browser withholds it, the editor shows a message pointing at the OS paste shortcut instead. |
 | Code view | Opens the raw HTML in a modal for direct editing. |
@@ -47,6 +48,40 @@ the drop position:
   than a link to it. Its original file is kept only when it is narrower than 600px and in a
   format a browser displays directly (JPEG, GIF, PNG, WebP or AVIF); any other image, or one
   600px or wider, gets a JPEG thumbnail generated at up to 600px wide instead.
+
+## Images
+
+**Insert/edit image** in the toolbar works like the image dialog of the classic editors.
+
+With the caret in text, it opens the element selector, limited to image assets. The picked image
+then shows in a popover with its alternative text (the file name to start with) and its size, at
+most 600px wide to start with, like an image dropped from the tree. **Insert** puts it at the
+caret, stored the same way as a dropped image (see below).
+
+Clicking an image in the content selects it; the same button, or a double click on the image,
+opens the popover for that image instead: a preview, **Choose another image** to swap the file
+while keeping the size and alternative text, the alternative text, and the size in pixels. The
+fields start from the image as it is shown.
+
+With **Keep proportions** checked (the default), changing one side updates the other from the
+image file's own proportions, and only the side that was entered is stored — the browser and
+Pimcore's thumbnail both derive the other one, so the image cannot be distorted. Unchecked, both
+sides are stored as entered. Clearing both fields removes the size again. Keeping the proportions
+is unavailable for an image whose proportions cannot be told yet, such as one that has not loaded.
+
+A size set here is stored as an inline style, replacing any `width`/`height` attributes — such as
+the one an image dropped from the tree comes with — so the two cannot disagree:
+
+```html
+<img src="…" alt="Logo.png" pimcore_id="9" pimcore_type="asset" style="width: 300px;">
+```
+
+A style rather than attributes, because Pimcore's default wysiwyg sanitizer keeps `style` on an
+image but drops `width` and `height`. On output, `Tool\Text::wysiwygText()` reads the pixel size
+from the style and replaces the image with a thumbnail of that size, including a high-resolution
+variant for the `srcset`.
+
+Inserting or changing an image is one undoable step; a changed image stays selected afterwards.
 
 ## Element links and images
 

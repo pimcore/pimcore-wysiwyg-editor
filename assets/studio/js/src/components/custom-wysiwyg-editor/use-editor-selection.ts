@@ -30,6 +30,21 @@ export interface FormatState {
    * second link. An empty string is a link without an address; `undefined` is no link at all.
    */
   linkUrl?: string
+  /** the image the selection consists of, if it is exactly one */
+  image?: SelectedImage
+}
+
+export interface SelectedImage {
+  /** the address the image is shown from, to preview it */
+  src?: string
+  /** its alternative text */
+  alt?: string
+  /** the width the image is shown at, in pixels, if it can be told */
+  width?: number
+  /** the height the image is shown at, in pixels, if it can be told */
+  height?: number
+  /** width divided by height, to keep the proportions while one of the two is changed */
+  aspectRatio?: number
 }
 
 export interface EditorSelection {
@@ -48,7 +63,8 @@ const EMPTY_FORMAT_STATE: FormatState = {
   canIndent: false,
   canOutdent: false,
   hasSelection: false,
-  linkUrl: undefined
+  linkUrl: undefined,
+  image: undefined
 }
 
 export type InlineMark = 'bold' | 'italic'
@@ -177,6 +193,65 @@ export const findEnclosingLink = (root: HTMLElement, range: Range): HTMLElement 
 export const resolveSelectionStartNode = resolveStartNode
 
 /**
+ * The image the range selects, if the range is that image and nothing else — the selection a click
+ * on an image leaves behind. A range that merely contains an image among other content is not
+ * "on" it.
+ */
+export const findSelectedImage = (root: HTMLElement, range: Range): HTMLImageElement | null => {
+  const { startContainer, startOffset, endContainer, endOffset } = range
+
+  if (startContainer !== endContainer || endOffset - startOffset !== 1 || !root.contains(startContainer)) {
+    return null
+  }
+
+  const node = startContainer.childNodes[startOffset]
+
+  return node?.nodeName === 'IMG' ? node as HTMLImageElement : null
+}
+
+/** A positive pixel length from a `style` value such as `240px`; anything else is unknown. */
+const parsePixels = (value: string): number | undefined => {
+  const match = /^\s*(\d+(?:\.\d+)?)px\s*$/i.exec(value)
+  const pixels = isNil(match) ? NaN : Math.round(Number(match[1]))
+
+  return pixels > 0 ? pixels : undefined
+}
+
+/** A positive pixel length from a `width`/`height` attribute; anything else is unknown. */
+const parseDimensionAttribute = (value: string | null): number | undefined => {
+  const pixels = Math.round(Number(value ?? ''))
+
+  return Number.isFinite(pixels) && pixels > 0 && !/%/.test(value ?? '') ? pixels : undefined
+}
+
+/**
+ * The size an image is shown at, in the order the browser applies it: a pixel size in its style
+ * overrides the attributes, which override the size it is rendered at. The proportions come from
+ * the image file itself once it has loaded — the size set on the tag may already distort it.
+ */
+export const describeImage = (image: HTMLImageElement): SelectedImage => {
+  const rendered = (value: number): number | undefined => value > 0 ? value : undefined
+  const width = parsePixels(image.style.width) ?? parseDimensionAttribute(image.getAttribute('width')) ?? rendered(image.width)
+  const height = parsePixels(image.style.height) ?? parseDimensionAttribute(image.getAttribute('height')) ?? rendered(image.height)
+
+  let aspectRatio: number | undefined
+
+  if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+    aspectRatio = image.naturalWidth / image.naturalHeight
+  } else if (!isNil(width) && !isNil(height)) {
+    aspectRatio = width / height
+  }
+
+  return {
+    src: image.getAttribute('src') ?? undefined,
+    alt: image.getAttribute('alt') ?? undefined,
+    width,
+    height,
+    aspectRatio
+  }
+}
+
+/**
  * Resolves the block element the caret currently sits in. Browsers report plain, never
  * explicitly formatted content either as an empty string or as `div`, which both read as
  * "paragraph" for the user.
@@ -232,6 +307,7 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
     const startNode = resolveStartNode(range)
     const listItem = findListItem(content, startNode)
     const link = findEnclosingLink(content, range)
+    const image = findSelectedImage(content, range)
 
     setFormatState({
       bold: !isNil(findInlineMark(content, startNode, 'bold')),
@@ -243,7 +319,8 @@ export const useEditorSelection = (contentRef: RefObject<HTMLElement>, active: b
       canIndent: !isNil(listItem) && canNestItem(listItem),
       canOutdent: !isNil(listItem) && isNestedItem(listItem),
       hasSelection: !range.collapsed,
-      linkUrl: isNil(link) ? undefined : link.getAttribute('href') ?? ''
+      linkUrl: isNil(link) ? undefined : link.getAttribute('href') ?? '',
+      image: isNil(image) ? undefined : describeImage(image)
     })
   }, [contentRef, getSelection])
 

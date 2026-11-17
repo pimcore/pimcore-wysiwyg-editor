@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Minska indrag
 wysiwyg-editor.toolbar.blockquote: Blockcitat
 wysiwyg-editor.toolbar.horizontal-rule: Horisontell linje
 wysiwyg-editor.toolbar.link: Infoga länk
+wysiwyg-editor.toolbar.image: "Infoga/redigera bild"
 wysiwyg-editor.toolbar.remove-format: Ta bort formatering
 wysiwyg-editor.toolbar.paste-plain-text: Klistra in som oformaterad text
 wysiwyg-editor.toolbar.paste-plain-text-unavailable: "Åtkomst till urklipp beviljades inte. Använd Ctrl+Skift+V (⌘+Skift+V på Mac) för att klistra in som oformaterad text."
@@ -25,6 +26,13 @@ wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Länktext (valfritt)
 wysiwyg-editor.link.insert: Infoga
 wysiwyg-editor.link.update: Uppdatera
+wysiwyg-editor.image.width: Bredd
+wysiwyg-editor.image.height: Höjd
+wysiwyg-editor.image.keep-proportions: Behåll proportioner
+wysiwyg-editor.image.apply: Verkställ
+wysiwyg-editor.image.insert: "Infoga"
+wysiwyg-editor.image.alt: "Alternativ text"
+wysiwyg-editor.image.choose-other: "Välj en annan bild"
 wysiwyg-editor.code-view.title: Redigera HTML-källkod
 wysiwyg-editor.code-view.apply: Tillämpa
 wysiwyg-editor.code-view.cancel: Avbryt

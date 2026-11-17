@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Diminuer le retrait
 wysiwyg-editor.toolbar.blockquote: Citation
 wysiwyg-editor.toolbar.horizontal-rule: Ligne horizontale
 wysiwyg-editor.toolbar.link: Insérer un lien
+wysiwyg-editor.toolbar.image: "Insérer/modifier une image"
 wysiwyg-editor.toolbar.remove-format: Supprimer la mise en forme
 wysiwyg-editor.toolbar.paste-plain-text: Coller en texte brut
 wysiwyg-editor.toolbar.paste-plain-text-unavailable: "L'accès au presse-papiers n'a pas été accordé. Utilisez Ctrl+Maj+V (⌘+Maj+V sur Mac) pour coller en texte brut."
@@ -25,6 +26,13 @@ wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Texte du lien (optionnel)
 wysiwyg-editor.link.insert: Insérer
 wysiwyg-editor.link.update: Mettre à jour
+wysiwyg-editor.image.width: Largeur
+wysiwyg-editor.image.height: Hauteur
+wysiwyg-editor.image.keep-proportions: Conserver les proportions
+wysiwyg-editor.image.apply: Appliquer
+wysiwyg-editor.image.insert: "Insérer"
+wysiwyg-editor.image.alt: "Texte alternatif"
+wysiwyg-editor.image.choose-other: "Choisir une autre image"
 wysiwyg-editor.code-view.title: Modifier la source HTML
 wysiwyg-editor.code-view.apply: Appliquer
 wysiwyg-editor.code-view.cancel: Annuler

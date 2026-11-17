@@ -110,6 +110,14 @@ export const LinkIcon = (): React.JSX.Element => (
   </ToolbarIcon>
 )
 
+export const ImageIcon = (): React.JSX.Element => (
+  <ToolbarIcon>
+    <rect height="18" rx="2" width="18" x="3" y="3" />
+    <circle cx="9" cy="9" r="2" />
+    <path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21" />
+  </ToolbarIcon>
+)
+
 export const ClearFormatIcon = (): React.JSX.Element => (
   <ToolbarIcon>
     <path d="M17 15l4 4" />
