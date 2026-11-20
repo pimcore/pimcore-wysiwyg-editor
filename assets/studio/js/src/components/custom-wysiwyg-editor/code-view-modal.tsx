@@ -37,7 +37,7 @@ export const CodeViewModal = ({ open, value, readOnly = false, onCancel, onApply
   return (
     <Modal
       cancelText={ t('wysiwyg-editor.code-view.cancel') }
-      destroyOnClose
+      destroyOnHidden
       okButtonProps={ { disabled: readOnly } }
       okText={ t('wysiwyg-editor.code-view.apply') }
       onCancel={ onCancel }

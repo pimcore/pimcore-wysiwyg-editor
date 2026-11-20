@@ -14,6 +14,8 @@ import { type Config } from 'jest'
 // host via module federation. Tests therefore resolve the federated entry points to local mocks.
 const config: Config = {
   testEnvironment: 'jsdom',
+  // the parallel worker pool stalls on the editor suite under load (jest 30 + jsdom 26); one process runs all in ~95 s
+  maxWorkers: 1,
   rootDir: '.',
   transform: {
     '^.+\\.(t|j)sx?$': 'ts-jest'
