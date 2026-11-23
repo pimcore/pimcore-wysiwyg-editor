@@ -12,9 +12,13 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Button, Input, Popover, Select, Tooltip } from 'antd'
 import { useTranslation } from '@pimcore/studio-ui-bundle/app'
 import { useStyles } from './custom-wysiwyg-editor.styles'
-import { type FormatState, type InlineMark } from './use-editor-selection'
+import { ALIGNMENT_COMMANDS, type Alignment, type FormatState, type InlineMark } from './use-editor-selection'
 import { useStickyToolbar } from './sticky-toolbar'
 import {
+  AlignCenterIcon,
+  AlignJustifyIcon,
+  AlignLeftIcon,
+  AlignRightIcon,
   BlockquoteIcon,
   BoldIcon,
   ClearFormatIcon,
@@ -51,6 +55,13 @@ const BLOCK_OPTIONS = [
   { value: 'h4', labelKey: 'wysiwyg-editor.block.heading-4' },
   { value: 'h5', labelKey: 'wysiwyg-editor.block.heading-5' },
   { value: 'h6', labelKey: 'wysiwyg-editor.block.heading-6' }
+]
+
+const ALIGNMENT_BUTTONS: Array<{ alignment: Alignment, icon: React.ReactNode, labelKey: string }> = [
+  { alignment: 'left', icon: <AlignLeftIcon />, labelKey: 'wysiwyg-editor.toolbar.align-left' },
+  { alignment: 'center', icon: <AlignCenterIcon />, labelKey: 'wysiwyg-editor.toolbar.align-center' },
+  { alignment: 'right', icon: <AlignRightIcon />, labelKey: 'wysiwyg-editor.toolbar.align-right' },
+  { alignment: 'justify', icon: <AlignJustifyIcon />, labelKey: 'wysiwyg-editor.toolbar.align-justify' }
 ]
 
 export const EditorToolbar = ({
@@ -161,6 +172,14 @@ export const EditorToolbar = ({
 
       { toolbarButton(<BoldIcon />, t('wysiwyg-editor.toolbar.bold'), () => { onToggleMark('bold') }, formatState.bold) }
       { toolbarButton(<ItalicIcon />, t('wysiwyg-editor.toolbar.italic'), () => { onToggleMark('italic') }, formatState.italic) }
+
+      <div className={ styles.toolbarDivider } />
+
+      { ALIGNMENT_BUTTONS.map(({ alignment, icon, labelKey }) => (
+        <React.Fragment key={ alignment }>
+          { formatButton(icon, t(labelKey), ALIGNMENT_COMMANDS[alignment], formatState.alignment === alignment) }
+        </React.Fragment>
+      )) }
 
       <div className={ styles.toolbarDivider } />
 

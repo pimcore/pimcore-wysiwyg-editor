@@ -95,11 +95,45 @@ export const BlockquoteIcon = (): React.JSX.Element => (
   </ToolbarIcon>
 )
 
+// a rule with arrows pointing away from it: three stacked lines of different length read as
+// "align centre", which is what this button used to be mistaken for
 export const HorizontalRuleIcon = (): React.JSX.Element => (
   <ToolbarIcon>
     <path d="M3 12h18" />
-    <path d="M8 6h8" />
-    <path d="M8 18h8" />
+    <polyline points="8 8 12 4 16 8" />
+    <polyline points="16 16 12 20 8 16" />
+  </ToolbarIcon>
+)
+
+export const AlignLeftIcon = (): React.JSX.Element => (
+  <ToolbarIcon>
+    <path d="M21 6H3" />
+    <path d="M15 12H3" />
+    <path d="M17 18H3" />
+  </ToolbarIcon>
+)
+
+export const AlignCenterIcon = (): React.JSX.Element => (
+  <ToolbarIcon>
+    <path d="M21 6H3" />
+    <path d="M17 12H7" />
+    <path d="M19 18H5" />
+  </ToolbarIcon>
+)
+
+export const AlignRightIcon = (): React.JSX.Element => (
+  <ToolbarIcon>
+    <path d="M21 6H3" />
+    <path d="M21 12H9" />
+    <path d="M21 18H7" />
+  </ToolbarIcon>
+)
+
+export const AlignJustifyIcon = (): React.JSX.Element => (
+  <ToolbarIcon>
+    <path d="M3 6h18" />
+    <path d="M3 12h18" />
+    <path d="M3 18h18" />
   </ToolbarIcon>
 )
 
