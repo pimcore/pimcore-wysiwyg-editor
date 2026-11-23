@@ -1365,6 +1365,16 @@ describe('CustomWysiwygEditor commit granularity', () => {
         throw new Error('content not rendered')
       }
 
+      // jsdom 26's CSS parser drops the angle form; report what a browser does for this rule
+      const computedStyle = window.getComputedStyle.bind(window)
+      jest.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+        const computed = computedStyle(element, pseudo)
+
+        return element === paragraph
+          ? new Proxy(computed, { get: (target, key) => key === 'fontStyle' ? 'oblique 10deg' : Reflect.get(target, key) as unknown })
+          : computed
+      })
+
       expect(getComputedStyle(paragraph).fontStyle).toMatch(/^oblique/)
       select(content, 'p', 7, 'p', 11)
 
@@ -1373,6 +1383,7 @@ describe('CustomWysiwygEditor commit granularity', () => {
       expect(content.innerHTML).toBe('<p class="slanted">Before <i>Bold</i> After</p>')
       expect(execCommand).not.toHaveBeenCalledWith('italic')
     } finally {
+      jest.restoreAllMocks()
       style.remove()
     }
   })
