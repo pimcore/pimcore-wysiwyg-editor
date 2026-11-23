@@ -16,13 +16,15 @@ import { useTranslation } from '@pimcore/studio-ui-bundle/app'
 import { readClipboardText } from './clipboard'
 import { isNil } from 'lodash'
 import { useStyles } from './custom-wysiwyg-editor.styles'
-import { EditorToolbar } from './editor-toolbar'
+import { EditorToolbar, type ImageAsset, type ImageChanges, type ImageSize } from './editor-toolbar'
+import { SelectionType, type ElementSelectorFinishEvent, useElementSelector } from '@pimcore/studio-ui-bundle/modules/element'
 import { CodeViewModal } from './code-view-modal'
 import {
   INLINE_MARKS,
   findEnclosingLink,
   findInlineMark,
   findListItem,
+  findSelectedImage,
   isBlockElement,
   isBoldWeight,
   isItalicStyle,
@@ -532,6 +534,8 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     const [hasFocus, setHasFocus] = useState(false)
     const [linkPopoverOpen, setLinkPopoverOpen] = useState(false)
     const [codeViewOpen, setCodeViewOpen] = useState(false)
+    const [imagePopoverOpen, setImagePopoverOpen] = useState(false)
+    const [chosenImageAsset, setChosenImageAsset] = useState<ImageAsset | undefined>(undefined)
     const inlineLeadToken = useRef(Math.random().toString(36).slice(2))
     const { styles } = useStyles()
     const messageApi = useMessage()
@@ -540,7 +544,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
     const isEditable = disabled !== true
     // the toolbar stays out of the way until the field is actually being worked on, but must
     // survive controls that render in a portal and therefore steal focus out of the wrapper
-    const showToolbar = isEditable && (hasFocus || linkPopoverOpen || codeViewOpen)
+    const showToolbar = isEditable && (hasFocus || linkPopoverOpen || codeViewOpen || imagePopoverOpen)
 
     const { formatState, refreshFormatState, restoreSelection } = useEditorSelection(contentRef, showToolbar)
 
@@ -1235,7 +1239,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
      * `pimcore_id`/`pimcore_type` attributes, replaces `src` with the asset's public path and
      * regenerates a thumbnail from the width attribute (`Pimcore\Tool\Text::wysiwygText()`).
      */
-    const buildImageHtml = (data: Record<string, any>): string => {
+    const buildImageHtml = (data: Record<string, any>, details: { alt?: string, size?: ImageSize } = {}): string => {
       const assetId = Number(data.id)
       const assetWidth = Number(data.width)
       const knownWidth = Number.isFinite(assetWidth) && assetWidth > 0
@@ -1248,10 +1252,17 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
         ? String(data.fullPath)
         : createImageThumbnailUrl(assetId, { width: DROPPED_IMAGE_WIDTH, mimeType: 'JPEG' })
 
+      const size = details.size ?? {}
+      const sizeStyle = [
+        ...(isNil(size.width) ? [] : [`width: ${size.width}px;`]),
+        ...(isNil(size.height) ? [] : [`height: ${size.height}px;`])
+      ].join(' ')
+
       const attributes = [
         `src="${escapeHtml(source)}"`,
-        `width="${width}"`,
-        `alt="${escapeHtml(String(data.filename ?? data.key ?? ''))}"`,
+        // a size picked for the image is stored as a style, like a resize does
+        sizeStyle === '' ? `width="${width}"` : `style="${sizeStyle}"`,
+        `alt="${escapeHtml(details.alt ?? String(data.filename ?? data.key ?? ''))}"`,
         `pimcore_id="${escapeHtml(String(data.id))}"`,
         'pimcore_type="asset"',
         // tells Pimcore to keep the original on output, since it is already small enough
@@ -1298,6 +1309,225 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
       insertHtml(
         `<a href="${escapeHtml(String(data.fullPath))}" pimcore_id="${escapeHtml(String(data.id))}" pimcore_type="${escapeHtml(pimcoreType)}">${escapeHtml(linkText)}</a>`
       )
+    }
+
+    /** Selects `image` as a whole, the way the toolbar's image size control expects to find it. */
+    const selectImage = (image: Node): void => {
+      const selection = contentRef.current?.ownerDocument.defaultView?.getSelection()
+
+      if (isNil(selection)) {
+        return
+      }
+
+      const range = image.ownerDocument!.createRange()
+
+      range.selectNode(image)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+
+    /**
+     * A click on an image selects it. Browsers leave a caret beside the image instead, which gives
+     * the image size control nothing to work on; a double click also opens that control, the way
+     * the classic editors open their image dialog.
+     */
+    const handleContentClick = (event: React.MouseEvent<HTMLDivElement>): void => {
+      const target = event.target
+
+      if (!isEditable || !(target instanceof Node) || target.nodeName !== 'IMG') {
+        return
+      }
+
+      selectImage(target)
+      refreshFormatState()
+
+      if (event.detail >= 2) {
+        setImagePopoverOpen(true)
+      }
+    }
+
+    /**
+     * Gives `image` the size as a style in pixels, which the page shows as it is and from which
+     * Pimcore generates a matching thumbnail on output. A style rather than the `width`/`height`
+     * attributes: Pimcore's default wysiwyg sanitizer keeps `style` on an image but drops those
+     * attributes. Any attribute size, like the one a dropped image comes with, goes, so the two
+     * cannot disagree; a side the size leaves out is not set at all, so the browser keeps the
+     * image's proportions on it.
+     */
+    const applyImageSize = (image: HTMLElement, size: ImageSize): void => {
+      image.removeAttribute('width')
+      image.removeAttribute('height')
+      image.style.removeProperty('width')
+      image.style.removeProperty('height')
+
+      if (!isNil(size.width)) {
+        image.style.width = `${size.width}px`
+      }
+
+      if (!isNil(size.height)) {
+        image.style.height = `${size.height}px`
+      }
+
+      if (image.getAttribute('style') === '') {
+        image.removeAttribute('style')
+      }
+    }
+
+    /**
+     * Inserts an image at a caret the way the inline marks are committed, so a plain space right
+     * after the caret stays one rather than being promoted to &nbsp; as `insertHTML` would. Over a
+     * selection the image takes the selected content's place, which the browser handles itself.
+     */
+    const insertImage = (range: Range, html: string): void => {
+      if (!range.collapsed) {
+        insertHtml(html)
+
+        return
+      }
+
+      const inserted = commitAround(range, (draft, draftRange) => {
+        const template = draft.ownerDocument.createElement('template')
+
+        template.innerHTML = html
+
+        const image = template.content.firstChild
+
+        if (isNil(image)) {
+          return undefined
+        }
+
+        draftRange.insertNode(image)
+
+        return { after: image }
+      })
+
+      // a caret with no span around it to commit, such as one in an empty field, takes the plain way
+      if (isNil(inserted)) {
+        insertHtml(html)
+
+        return
+      }
+
+      emitChange()
+      refreshFormatState()
+    }
+
+    /**
+     * Applies the image popover: changes the selected image — its file, alternative text and size —
+     * or, with no image selected, inserts the picked one at the caret.
+     */
+    const handleApplyImage = ({ asset, alt, size }: ImageChanges): void => {
+      if (!isEditable) {
+        return
+      }
+
+      focusContent()
+
+      const content = contentRef.current
+      const selection = content?.ownerDocument.defaultView?.getSelection()
+
+      if (isNil(content) || isNil(selection) || selection.rangeCount === 0) {
+        return
+      }
+
+      const range = selection.getRangeAt(0)
+      const image = findSelectedImage(content, range)
+
+      if (isNil(image)) {
+        if (!isNil(asset)) {
+          insertImage(range, buildImageHtml({ id: asset.id, fullPath: asset.fullPath, filename: asset.filename }, { alt, size }))
+        }
+
+        return
+      }
+
+      const imageRange = content.ownerDocument.createRange()
+
+      imageRange.selectNode(image)
+
+      // committed like the inline marks rather than replaced in place, which would promote a plain
+      // space beside the image to &nbsp;
+      const changed = commitAround(imageRange, (_draft, _draftRange, locate) => {
+        const draftImage = locate(image)
+
+        if (!(draftImage instanceof HTMLElement)) {
+          return undefined
+        }
+
+        if (!isNil(asset)) {
+          // the element attributes are what Pimcore resolves the image from on output
+          draftImage.setAttribute('src', asset.previewUrl)
+          draftImage.setAttribute('pimcore_id', String(asset.id))
+          draftImage.setAttribute('pimcore_type', 'asset')
+          draftImage.removeAttribute('pimcore_disable_thumbnail')
+        }
+
+        // an image that never had an alternative text does not get an empty one just for this
+        if (alt !== (draftImage.getAttribute('alt') ?? '')) {
+          draftImage.setAttribute('alt', alt)
+        }
+        applyImageSize(draftImage, size)
+
+        return { after: draftImage }
+      })
+
+      // keep the image selected, so it can be changed again straight away
+      if (!isNil(changed)) {
+        selectImage(changed)
+      }
+
+      emitChange()
+      refreshFormatState()
+    }
+
+    const handleImagePopoverOpenChange = (open: boolean): void => {
+      setImagePopoverOpen(open)
+
+      if (!open) {
+        setChosenImageAsset(undefined)
+      }
+    }
+
+    /**
+     * A picked image opens the popover again, with the selection back where it was: the selector is
+     * a modal of its own (in the parent window, when the editor sits in a document's edit frame), so
+     * focus and the selection have left the field meanwhile.
+     */
+    const handleImageAssetChosen = ({ items }: ElementSelectorFinishEvent): void => {
+      const data = items[0]?.data
+
+      if (isNil(data?.id)) {
+        return
+      }
+
+      const fullPath = String(data.fullpath ?? data.fullPath ?? '')
+
+      setChosenImageAsset({
+        id: Number(data.id),
+        fullPath,
+        filename: String(data.filename ?? fullPath.split('/').pop() ?? ''),
+        previewUrl: createImageThumbnailUrl(Number(data.id), { width: DROPPED_IMAGE_WIDTH, mimeType: 'JPEG' })
+      })
+      focusContent()
+      refreshFormatState()
+      setImagePopoverOpen(true)
+    }
+
+    const { open: openImageSelector } = useElementSelector({
+      selectionType: SelectionType.Single,
+      areas: { asset: true, document: false, object: false },
+      config: { assets: { allowedTypes: ['image'] } },
+      onFinish: handleImageAssetChosen
+    })
+
+    const handleChooseImageAsset = (): void => {
+      if (!isEditable) {
+        return
+      }
+
+      // the popover would float above the selector's modal
+      handleImagePopoverOpenChange(false)
+      openImageSelector()
     }
 
     const handleApplyCodeView = (edited: string): void => {
@@ -1349,7 +1579,12 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
             onLinkPopoverOpenChange={ setLinkPopoverOpen }
             onIndent={ handleIndent }
             onOpenCodeView={ () => { setCodeViewOpen(true) } }
+            imagePopoverOpen={ imagePopoverOpen }
+            onImagePopoverOpenChange={ handleImagePopoverOpenChange }
+            chosenImageAsset={ chosenImageAsset }
+            onChooseImageAsset={ handleChooseImageAsset }
             onPasteAsPlainText={ () => { void handlePasteAsPlainText() } }
+            onApplyImage={ handleApplyImage }
             onToggleMark={ handleToggleMark }
           />
         ) }
@@ -1359,6 +1594,7 @@ export const CustomWysiwygEditor = forwardRef<WysiwygEditorRef, WysiwygProps>(
           contentEditable={ isEditable }
           data-empty={ valueIsEmpty }
           data-placeholder={ placeholder }
+          onClick={ handleContentClick }
           onInput={ handleInput }
           onKeyDown={ handleKeyDown }
           ref={ contentRef }

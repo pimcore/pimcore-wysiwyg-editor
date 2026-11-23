@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Uitspringen
 wysiwyg-editor.toolbar.blockquote: Blok-citaat
 wysiwyg-editor.toolbar.horizontal-rule: Horizontale lijn
 wysiwyg-editor.toolbar.link: Link invoegen
+wysiwyg-editor.toolbar.image: "Afbeelding invoegen/bewerken"
 wysiwyg-editor.toolbar.remove-format: Opmaak verwijderen
 wysiwyg-editor.toolbar.paste-plain-text: Plakken als platte tekst
 wysiwyg-editor.toolbar.paste-plain-text-unavailable: Toegang tot het klembord is niet toegestaan. Gebruik Ctrl+Shift+V (⌘+Shift+V op Mac) om als platte tekst te plakken.
@@ -25,6 +26,13 @@ wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Linktekst (optioneel)
 wysiwyg-editor.link.insert: Invoegen
 wysiwyg-editor.link.update: Bijwerken
+wysiwyg-editor.image.width: Breedte
+wysiwyg-editor.image.height: Hoogte
+wysiwyg-editor.image.keep-proportions: Verhoudingen behouden
+wysiwyg-editor.image.apply: Toepassen
+wysiwyg-editor.image.insert: "Invoegen"
+wysiwyg-editor.image.alt: "Alternatieve tekst"
+wysiwyg-editor.image.choose-other: "Andere afbeelding kiezen"
 wysiwyg-editor.code-view.title: HTML-broncode bewerken
 wysiwyg-editor.code-view.apply: Toepassen
 wysiwyg-editor.code-view.cancel: Annuleren

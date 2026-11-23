@@ -12,6 +12,7 @@ import React from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { messageMock } from '../../../test-utils/mocks/studio-ui-components-mock'
 import { settingsMock } from '../../../test-utils/mocks/studio-ui-modules-app-mock'
+import { elementSelectorMock } from '../../../test-utils/mocks/studio-ui-modules-element-mock'
 import { CustomWysiwygEditor } from './custom-wysiwyg-editor'
 import { INLINE_TAGS } from './use-editor-selection'
 
@@ -266,6 +267,242 @@ describe('CustomWysiwygEditor horizontal rule', () => {
 
     expect(execCommand).toHaveBeenCalledWith('insertHorizontalRule', false, undefined)
     expect(onChange).toHaveBeenLastCalledWith('<p>kept</p><hr>')
+  })
+})
+
+describe('CustomWysiwygEditor image', () => {
+  const IMAGE_BUTTON = 'wysiwyg-editor.toolbar.image'
+  const DROPPED = '<img src="/thumb.jpg" width="600" alt="x.jpg" pimcore_id="9" pimcore_type="asset">'
+
+  const clickImage = (content: HTMLElement, detail = 1): HTMLImageElement => {
+    const image = content.querySelector('img')
+
+    if (image === null) {
+      throw new Error('no image in the content')
+    }
+
+    act(() => {
+      fireEvent.click(image, { detail })
+      document.dispatchEvent(new Event('selectionchange'))
+    })
+
+    return image
+  }
+
+  const resizeTo = (width: string, height?: string): void => {
+    fireEvent.click(screen.getByRole('button', { name: IMAGE_BUTTON }))
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'wysiwyg-editor.image.width' }), { target: { value: width } })
+
+    if (height !== undefined) {
+      fireEvent.change(screen.getByRole('spinbutton', { name: 'wysiwyg-editor.image.height' }), { target: { value: height } })
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.image.apply' }))
+  }
+
+  it('selects an image when it is clicked', () => {
+    const { content } = renderEditor(`<p>before ${DROPPED} after</p>`)
+
+    installExecCommand(content)
+    const image = clickImage(content)
+    const range = document.getSelection()!.getRangeAt(0)
+
+    expect(range.startContainer.childNodes[range.startOffset]).toBe(image)
+    expect(range.endOffset - range.startOffset).toBe(1)
+    expect(screen.getByRole('button', { name: IMAGE_BUTTON })).toBeEnabled()
+  })
+
+  it('opens the size controls on a double click', () => {
+    const { content } = renderEditor(`<p>${DROPPED}</p>`)
+
+    installExecCommand(content)
+    clickImage(content, 2)
+
+    expect(screen.getByRole('spinbutton', { name: 'wysiwyg-editor.image.width' })).toHaveValue(600)
+  })
+
+  const pickAsset = (id: number, fullpath: string): void => {
+    act(() => {
+      elementSelectorMock.finish({ items: [{ elementType: 'asset', data: { id, fullpath, type: 'image' } }] })
+    })
+  }
+
+  beforeEach(() => {
+    elementSelectorMock.open.mockClear()
+    elementSelectorMock.config = undefined
+  })
+
+  it('picks an image asset in the element selector for a caret in text', () => {
+    renderEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: IMAGE_BUTTON }))
+
+    expect(elementSelectorMock.open).toHaveBeenCalledWith(expect.objectContaining({
+      selectionType: 'single',
+      areas: { asset: true, document: false, object: false },
+      config: { assets: { allowedTypes: ['image'] } }
+    }))
+  })
+
+  it('inserts the picked image the way a dropped one is stored', () => {
+    const { onChange, content } = renderEditor()
+
+    installExecCommand(content)
+    fireEvent.click(screen.getByRole('button', { name: IMAGE_BUTTON }))
+    pickAsset(9, '/photos/stage.jpg')
+
+    expect(screen.getByRole('textbox', { name: 'wysiwyg-editor.image.alt' })).toHaveValue('stage.jpg')
+
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.image.insert' }))
+
+    expect(onChange.mock.lastCall?.[0]).toContain(
+      '<img src="/thumbnail/9" width="600" alt="stage.jpg" pimcore_id="9" pimcore_type="asset">'
+    )
+  })
+
+  it('inserts the picked image with the size and alternative text entered', () => {
+    const { onChange, content } = renderEditor()
+
+    installExecCommand(content)
+    fireEvent.click(screen.getByRole('button', { name: IMAGE_BUTTON }))
+    pickAsset(9, '/photos/stage.jpg')
+    fireEvent.change(screen.getByRole('textbox', { name: 'wysiwyg-editor.image.alt' }), { target: { value: 'The "stage"' } })
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'wysiwyg-editor.image.width' }), { target: { value: '300' } })
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.image.insert' }))
+
+    expect(onChange.mock.lastCall?.[0]).toContain(
+      '<img src="/thumbnail/9" style="width: 300px;" alt="The &quot;stage&quot;" pimcore_id="9" pimcore_type="asset">'
+    )
+  })
+
+  it('inserts nothing when the selector is left without a pick', () => {
+    const { onChange } = renderEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: IMAGE_BUTTON }))
+
+    expect(screen.queryByRole('button', { name: 'wysiwyg-editor.image.insert' })).not.toBeInTheDocument()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('replaces the selected image with another asset, keeping its size', () => {
+    const { onChange, content } = renderEditor('<p>before <img src="/thumbnail/3" alt="old.jpg" pimcore_id="3" pimcore_type="asset" pimcore_disable_thumbnail="true" style="width: 250px;"> after</p>')
+
+    installExecCommand(content)
+    clickImage(content)
+    fireEvent.click(screen.getByRole('button', { name: IMAGE_BUTTON }))
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.image.choose-other' }))
+
+    expect(elementSelectorMock.open).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: 'wysiwyg-editor.image.apply' })).not.toBeInTheDocument()
+
+    pickAsset(12, '/photos/new.jpg')
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.image.apply' }))
+
+    expect(onChange).toHaveBeenLastCalledWith(
+      '<p>before <img src="/thumbnail/12" alt="old.jpg" pimcore_id="12" pimcore_type="asset" style="width: 250px;"> after</p>'
+    )
+  })
+
+  it('changes the alternative text of the selected image', () => {
+    const { onChange, content } = renderEditor(`<p>${DROPPED}</p>`)
+
+    installExecCommand(content)
+    clickImage(content, 2)
+    fireEvent.change(screen.getByRole('textbox', { name: 'wysiwyg-editor.image.alt' }), { target: { value: 'Stage' } })
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.image.apply' }))
+
+    expect(onChange.mock.lastCall?.[0]).toContain('alt="Stage"')
+  })
+
+  it('stores the new width as a pixel style, replacing the attribute size, and keeps the element reference', () => {
+    const { onChange, content } = renderEditor(`<p>before ${DROPPED} after</p>`)
+
+    installExecCommand(content)
+    clickImage(content)
+    resizeTo('250')
+
+    expect(onChange).toHaveBeenLastCalledWith(
+      '<p>before <img src="/thumb.jpg" alt="x.jpg" pimcore_id="9" pimcore_type="asset" style="width: 250px;"> after</p>'
+    )
+  })
+
+  it('stores both sides once the proportions are released', () => {
+    const { onChange, content } = renderEditor('<p><img src="/thumb.jpg" width="600" height="400" alt="x.jpg" pimcore_id="9" pimcore_type="asset"></p>')
+
+    installExecCommand(content)
+    clickImage(content)
+    fireEvent.click(screen.getByRole('button', { name: IMAGE_BUTTON }))
+
+    const keepProportions = screen.getByRole('checkbox', { name: 'wysiwyg-editor.image.keep-proportions' })
+
+    expect(keepProportions).toBeChecked()
+    fireEvent.click(keepProportions)
+    expect(keepProportions).not.toBeChecked()
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'wysiwyg-editor.image.width' }), { target: { value: '200' } })
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'wysiwyg-editor.image.height' }), { target: { value: '100' } })
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.image.apply' }))
+
+    expect(onChange).toHaveBeenLastCalledWith(
+      '<p><img src="/thumb.jpg" alt="x.jpg" pimcore_id="9" pimcore_type="asset" style="width: 200px; height: 100px;"></p>'
+    )
+  })
+
+  it('drops the size altogether when both fields are cleared', () => {
+    const { onChange, content } = renderEditor('<p><img src="/a.jpg" style="width: 250px;"></p>')
+
+    installExecCommand(content)
+    clickImage(content)
+    fireEvent.click(screen.getByRole('button', { name: IMAGE_BUTTON }))
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'wysiwyg-editor.image.width' }), { target: { value: '' } })
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'wysiwyg-editor.image.height' }), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.image.apply' }))
+
+    expect(onChange).toHaveBeenLastCalledWith('<p><img src="/a.jpg"></p>')
+  })
+
+  it('keeps other styles on the image', () => {
+    const { onChange, content } = renderEditor('<p><img src="/a.jpg" style="float: left; width: 50px;"></p>')
+
+    installExecCommand(content)
+    clickImage(content)
+    resizeTo('80')
+
+    expect(onChange).toHaveBeenLastCalledWith('<p><img src="/a.jpg" style="float: left; width: 80px;"></p>')
+  })
+
+  it('does not turn the spaces beside the image into non-breaking ones', () => {
+    const { onChange, content } = renderEditor(`<p>before ${DROPPED} after</p>`)
+
+    installExecCommand(content)
+    clickImage(content)
+    resizeTo('250')
+
+    expect(onChange.mock.lastCall?.[0]).not.toContain('\u00a0')
+    expect(onChange.mock.lastCall?.[0]).not.toContain('&nbsp;')
+  })
+
+  it('keeps the image selected, so it can be sized again straight away', () => {
+    const { content } = renderEditor(`<p>before ${DROPPED} after</p>`)
+
+    installExecCommand(content)
+    clickImage(content)
+    resizeTo('250')
+
+    const range = document.getSelection()!.getRangeAt(0)
+
+    expect(range.startContainer.childNodes[range.startOffset]?.nodeName).toBe('IMG')
+    expect(range.endOffset - range.startOffset).toBe(1)
+  })
+
+  it('can be undone in one step', () => {
+    const { onChange, content } = renderEditor(`<p>${DROPPED}</p>`)
+
+    installExecCommand(content)
+    clickImage(content)
+    resizeTo('250')
+    fireEvent.click(screen.getByRole('button', { name: 'wysiwyg-editor.toolbar.undo' }))
+
+    expect(onChange).toHaveBeenLastCalledWith(`<p>${DROPPED}</p>`)
   })
 })
 

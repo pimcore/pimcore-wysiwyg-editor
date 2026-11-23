@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Outdent
 wysiwyg-editor.toolbar.blockquote: Blockquote
 wysiwyg-editor.toolbar.horizontal-rule: Horizontal rule
 wysiwyg-editor.toolbar.link: Insert link
+wysiwyg-editor.toolbar.image: "Insert/edit image"
 wysiwyg-editor.toolbar.remove-format: Remove formatting
 wysiwyg-editor.toolbar.paste-plain-text: Paste as plain text
 wysiwyg-editor.toolbar.paste-plain-text-unavailable: "Clipboard access was not granted. Use Ctrl+Shift+V (⌘+Shift+V on Mac) to paste as plain text."
@@ -25,6 +26,13 @@ wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Link text (optional)
 wysiwyg-editor.link.insert: Insert
 wysiwyg-editor.link.update: Update
+wysiwyg-editor.image.width: Width
+wysiwyg-editor.image.height: Height
+wysiwyg-editor.image.keep-proportions: Keep proportions
+wysiwyg-editor.image.apply: Apply
+wysiwyg-editor.image.insert: "Insert"
+wysiwyg-editor.image.alt: "Alternative text"
+wysiwyg-editor.image.choose-other: "Choose another image"
 wysiwyg-editor.code-view.title: Edit HTML source
 wysiwyg-editor.code-view.apply: Apply
 wysiwyg-editor.code-view.cancel: Cancel

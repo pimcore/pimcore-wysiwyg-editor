@@ -69,6 +69,14 @@ export const useStyles = createStyles(({ token }) => {
       justifyContent: 'flex-end'
     },
 
+    imagePreview: {
+      display: 'block',
+      maxWidth: '240px',
+      maxHeight: '120px',
+      margin: '0 auto',
+      objectFit: 'contain'
+    },
+
     content: {
       minHeight: '120px',
       padding: '8px 12px',

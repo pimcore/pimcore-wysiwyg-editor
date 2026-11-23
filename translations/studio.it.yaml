@@ -8,6 +8,7 @@ wysiwyg-editor.toolbar.outdent: Riduci rientro
 wysiwyg-editor.toolbar.blockquote: Citazione
 wysiwyg-editor.toolbar.horizontal-rule: Linea orizzontale
 wysiwyg-editor.toolbar.link: Inserisci collegamento
+wysiwyg-editor.toolbar.image: "Inserisci/modifica immagine"
 wysiwyg-editor.toolbar.remove-format: Rimuovi formattazione
 wysiwyg-editor.toolbar.paste-plain-text: Incolla come testo semplice
 wysiwyg-editor.toolbar.paste-plain-text-unavailable: "L'accesso agli appunti non è stato concesso. Usa Ctrl+Maiusc+V (⌘+Maiusc+V su Mac) per incollare come testo semplice."
@@ -25,6 +26,13 @@ wysiwyg-editor.link.url: URL
 wysiwyg-editor.link.text: Testo del collegamento (opzionale)
 wysiwyg-editor.link.insert: Inserisci
 wysiwyg-editor.link.update: Aggiorna
+wysiwyg-editor.image.width: Larghezza
+wysiwyg-editor.image.height: Altezza
+wysiwyg-editor.image.keep-proportions: Mantieni le proporzioni
+wysiwyg-editor.image.apply: Applica
+wysiwyg-editor.image.insert: "Inserisci"
+wysiwyg-editor.image.alt: "Testo alternativo"
+wysiwyg-editor.image.choose-other: "Scegli un'altra immagine"
 wysiwyg-editor.code-view.title: Modifica sorgente HTML
 wysiwyg-editor.code-view.apply: Applica
 wysiwyg-editor.code-view.cancel: Annulla
